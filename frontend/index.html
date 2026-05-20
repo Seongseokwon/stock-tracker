@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>StockPulse — 실시간 주식 트래커</title>
+  <meta name="description" content="미국·한국 주식 관심목록을 한곳에서. 실시간 시세, 차트, 포트폴리오, 가격 알림까지." />
+  <meta name="theme-color" content="#080c14" />
+  <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192" />
+  <link rel="apple-touch-icon" href="icon-512.png" sizes="512x512" />
+
+  <!-- Open Graph (카카오톡·Facebook·iMessage 링크 미리보기) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="ko_KR" />
+  <meta property="og:site_name" content="StockPulse" />
+  <meta property="og:title" content="StockPulse — 실시간 주식 트래커" />
+  <meta property="og:description" content="미국·한국 주식 관심목록을 한곳에서. 실시간 시세, 차트, 포트폴리오, 가격 알림까지." />
+  <meta property="og:image" content="__OG_BASE_URL__/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="StockPulse 실시간 주식 트래커" />
+  <meta property="og:url" content="__OG_BASE_URL__/" />
+
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="StockPulse — 실시간 주식 트래커" />
+  <meta name="twitter:description" content="미국·한국 주식 관심목록을 한곳에서. 실시간 시세, 차트, 포트폴리오, 가격 알림까지." />
+  <meta name="twitter:image" content="__OG_BASE_URL__/og-image.png" />
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    (function () {
+      var t = localStorage.getItem('sp_theme');
+      if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <polyline points="22,7 13.5,15.5 8.5,10.5 2,17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="16,7 22,7 22,13" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="logo-text">StockPulse</span>
+      </div>
+      <div class="header-right">
+        <div class="market-badges" id="marketBadges">
+          <span class="market-badge" id="badgeKr" title="한국 시장">🇰🇷 --</span>
+          <span class="market-badge" id="badgeUs" title="미국 시장">🇺🇸 --</span>
+        </div>
+        <button type="button" class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="라이트/다크 모드 전환" aria-label="테마 전환">
+          <span class="theme-icon-dark" id="themeIconDark" aria-hidden="true">🌙</span>
+          <span class="theme-icon-light" id="themeIconLight" aria-hidden="true">☀️</span>
+        </button>
+        <button type="button" class="alert-bell-btn" id="alertBellBtn" onclick="requestAlertPermission()" title="알림 권한">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span class="alert-bell-badge hidden" id="alertBellBadge">0</span>
+        </button>
+        <div class="ws-status" id="wsStatus">
+          <span class="status-dot"></span>
+          <span class="status-label">연결 중...</span>
+        </div>
+        <div class="market-time" id="marketTime"></div>
+      </div>
+    </div>
+  </header>
+
+  <div id="rateLimitBanner" class="rate-limit-banner hidden" role="alert" aria-live="polite">
+    <span class="rate-limit-icon" aria-hidden="true">⚠</span>
+    <div class="rate-limit-text">
+      <strong>Finnhub API 요청 한도</strong>
+      <span id="rateLimitBannerMsg">무료 플랜 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.</span>
+    </div>
+    <button type="button" class="rate-limit-dismiss" onclick="dismissRateLimitBanner()" aria-label="안내 닫기">×</button>
+  </div>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <!-- Search section -->
+    <section class="search-section">
+      <div class="search-container">
+        <h1 class="search-title">실시간 주식 트래킹</h1>
+        <p class="search-subtitle">종목명·코드로 검색해 관심 목록에 추가하세요 (한국: 삼성전자, 005930)</p>
+        <!-- Market selector tabs -->
+        <div class="market-tabs">
+          <button id="tab-US" class="market-tab active" onclick="switchMarket('US')">
+            <span class="tab-flag">🇺🇸</span> 미국 (NASDAQ/NYSE)
+          </button>
+          <button id="tab-KR" class="market-tab" onclick="switchMarket('KR')">
+            <span class="tab-flag">🇰🇷</span> 한국 (KOSPI/KOSDAQ)
+          </button>
+        </div>
+        <div id="krExchangeTabs" class="kr-exchange-tabs hidden">
+          <button id="kr-tab-KS" type="button" class="kr-exchange-tab active" onclick="switchKrExchange('KS')">KOSPI (.KS)</button>
+          <button id="kr-tab-KQ" type="button" class="kr-exchange-tab" onclick="switchKrExchange('KQ')">KOSDAQ (.KQ)</button>
+        </div>
+        <div class="search-box">
+          <div class="search-input-wrap">
+            <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+              <path d="m21 21-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <input
+              type="text"
+              id="searchInput"
+              class="search-input"
+              placeholder="종목명·코드 (예: 삼성전자, 005930, AAPL)"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button class="search-btn" id="searchBtn" onclick="handleSearch()">
+              <span>추가</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+          <div class="search-suggestions" id="searchSuggestions"></div>
+        </div>
+        <!-- Popular stocks -->
+        <div class="popular-stocks">
+          <span class="popular-label">인기 종목:</span>
+          <div class="popular-chips" id="popularChips">
+            <button class="chip" onclick="addStock('AAPL')">AAPL</button>
+            <button class="chip" onclick="addStock('TSLA')">TSLA</button>
+            <button class="chip" onclick="addStock('NVDA')">NVDA</button>
+            <button class="chip" onclick="addStock('MSFT')">MSFT</button>
+            <button class="chip" onclick="addStock('GOOGL')">GOOGL</button>
+            <button class="chip" onclick="addStock('AMZN')">AMZN</button>
+            <button class="chip" onclick="addStock('META')">META</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Portfolio summary -->
+    <section class="portfolio-section hidden" id="portfolioSection">
+      <div class="section-header portfolio-header">
+        <h2 class="section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          포트폴리오
+        </h2>
+        <span class="portfolio-holding-count" id="portfolioHoldingCount">0 종목</span>
+      </div>
+      <div class="portfolio-grid" id="portfolioSummary">
+        <!-- US / KR summary cards injected by app.js -->
+      </div>
+    </section>
+
+    <!-- Watchlist -->
+    <section class="watchlist-section" id="watchlistSection">
+      <div class="section-header">
+        <h2 class="section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+          관심 종목
+        </h2>
+        <span class="stock-count" id="stockCount">0 종목</span>
+      </div>
+      <div class="watchlist-toolbar" id="watchlistToolbar">
+        <div class="toolbar-group">
+          <label class="toolbar-label" for="filterMarket">시장</label>
+          <select id="filterMarket" class="toolbar-select" onchange="setFilterMarket(this.value)">
+            <option value="all">전체</option>
+            <option value="US">🇺🇸 미국</option>
+            <option value="KR">🇰🇷 한국</option>
+          </select>
+        </div>
+        <div class="toolbar-group">
+          <label class="toolbar-label" for="sortBy">정렬</label>
+          <select id="sortBy" class="toolbar-select" onchange="setSortBy(this.value)">
+            <option value="added">추가순</option>
+            <option value="change">등락률순</option>
+            <option value="price">가격순</option>
+            <option value="symbol">이름순</option>
+            <option value="pnl">수익률순</option>
+          </select>
+        </div>
+        <div class="toolbar-group toolbar-actions share-toolbar-wrap">
+          <button type="button" class="toolbar-btn" id="shareBtn" onclick="toggleSharePanel(event)" title="관심목록 링크 복사">🔗 공유</button>
+          <div class="share-panel hidden" id="sharePanel" onclick="event.stopPropagation()">
+            <p class="share-panel-title">링크에 포함</p>
+            <label class="share-option"><input type="checkbox" id="shareIncludePf" checked /> 포트폴리오</label>
+            <label class="share-option"><input type="checkbox" id="shareIncludeAl" checked /> 가격 알림</label>
+            <button type="button" class="share-panel-copy" onclick="confirmShareUrl()">링크 복사</button>
+          </div>
+          <button type="button" class="toolbar-btn" onclick="exportWatchlistData()" title="JSON 백업">⬇ 백업</button>
+          <button type="button" class="toolbar-btn" onclick="document.getElementById('importFileInput').click()" title="JSON 복원">⬆ 복원</button>
+          <input type="file" id="importFileInput" accept="application/json,.json" class="hidden" onchange="importWatchlistData(this.files[0]); this.value=''" />
+        </div>
+      </div>
+      <div class="watchlist-grid" id="watchlistGrid">
+        <!-- Stock cards will be injected here -->
+      </div>
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+            <path d="M3 3v18h18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M7 16l4-4 4 4 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <p class="empty-title">아직 추가된 종목이 없습니다</p>
+        <p class="empty-desc">위의 검색창에서 종목을 추가해보세요</p>
+      </div>
+    </section>
+
+    <!-- Detail modal -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModal()">
+      <div class="modal" id="modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <h3 class="modal-symbol" id="modalSymbol">AAPL</h3>
+            <span class="modal-name" id="modalName">Apple Inc.</span>
+          </div>
+          <button class="modal-close" onclick="closeModal()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-scroll" id="modalScroll">
+        <div class="modal-price-group">
+          <span class="modal-price" id="modalPrice">--</span>
+          <span class="modal-change" id="modalChange">--</span>
+        </div>
+        <div class="modal-chart-container">
+          <div class="chart-controls">
+            <div class="chart-range-btns">
+              <button type="button" class="chart-ctrl-btn active" data-preset="intraday" onclick="setModalChartPreset('intraday')">당일</button>
+              <button type="button" class="chart-ctrl-btn" data-preset="day" onclick="setModalChartPreset('day')">일</button>
+              <button type="button" class="chart-ctrl-btn" data-preset="week" onclick="setModalChartPreset('week')">주</button>
+              <button type="button" class="chart-ctrl-btn" data-preset="month" onclick="setModalChartPreset('month')">월</button>
+            </div>
+            <div class="chart-type-btns">
+              <button type="button" id="chartTypeLine" class="chart-ctrl-btn active" onclick="setModalChartType('line')">라인</button>
+              <button type="button" id="chartTypeCandle" class="chart-ctrl-btn" onclick="setModalChartType('candle')">캔들</button>
+            </div>
+          </div>
+          <canvas id="modalChart" width="600" height="200"></canvas>
+        </div>
+        <div class="portfolio-panel" id="portfolioPanel">
+          <div class="portfolio-panel-header">
+            <h4 class="portfolio-panel-title">보유 정보</h4>
+            <span class="portfolio-panel-hint">수량·평균 매수가 입력 시 손익 계산</span>
+          </div>
+          <div class="portfolio-form">
+            <div class="pf-field">
+              <label for="pfShares">보유 수량</label>
+              <input type="number" id="pfShares" class="pf-input" min="0" step="any" placeholder="0" oninput="updatePortfolioPreview()" />
+            </div>
+            <div class="pf-field">
+              <label for="pfAvgCost">평균 매수가</label>
+              <input type="number" id="pfAvgCost" class="pf-input" min="0" step="any" placeholder="0" oninput="updatePortfolioPreview()" />
+            </div>
+            <button type="button" class="pf-save-btn" onclick="savePortfolioFromModal()">저장</button>
+          </div>
+          <div class="pf-preview" id="pfPreview">
+            <div class="pf-preview-row"><span>매입금액</span><span id="pfPreviewCost">--</span></div>
+            <div class="pf-preview-row"><span>평가금액</span><span id="pfPreviewValue">--</span></div>
+            <div class="pf-preview-row pf-preview-pnl"><span>평가손익</span><span id="pfPreviewPnl">--</span></div>
+          </div>
+        </div>
+        <div class="alert-panel" id="alertPanel">
+          <div class="alert-panel-header">
+            <h4 class="alert-panel-title">가격 알림</h4>
+            <label class="alert-enable-toggle">
+              <input type="checkbox" id="alertEnabled" onchange="toggleAlertEnabled()" />
+              <span>알림 사용</span>
+            </label>
+          </div>
+          <div class="alert-form" id="alertForm">
+            <div class="alert-field-row">
+              <div class="pf-field alert-field-grow">
+                <label for="alertPriceTarget">목표가</label>
+                <input type="number" id="alertPriceTarget" class="pf-input" min="0" step="any" placeholder="예: 200000" />
+              </div>
+              <div class="pf-field">
+                <label for="alertPriceDir">조건</label>
+                <select id="alertPriceDir" class="toolbar-select alert-select">
+                  <option value="above">이상</option>
+                  <option value="below">이하</option>
+                </select>
+              </div>
+            </div>
+            <div class="alert-field-row">
+              <div class="pf-field alert-field-grow">
+                <label for="alertPctThreshold">등락률 (%)</label>
+                <input type="number" id="alertPctThreshold" class="pf-input" min="0" step="0.1" placeholder="예: 3" />
+              </div>
+              <div class="pf-field">
+                <label for="alertPctDir">방향</label>
+                <select id="alertPctDir" class="toolbar-select alert-select">
+                  <option value="abs">절대값</option>
+                  <option value="up">상승</option>
+                  <option value="down">하락</option>
+                </select>
+              </div>
+            </div>
+            <button type="button" class="pf-save-btn alert-save-btn" onclick="saveAlertFromModal()">알림 저장</button>
+            <p class="alert-hint" id="alertPermissionHint">브라우저 알림을 켜려면 헤더의 🔔 버튼을 누르세요.</p>
+          </div>
+        </div>
+        <div class="modal-stats">
+          <div class="stat-item">
+            <span class="stat-label">시가</span>
+            <span class="stat-value" id="statOpen">--</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">고가</span>
+            <span class="stat-value" id="statHigh">--</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">저가</span>
+            <span class="stat-value" id="statLow">--</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">거래량</span>
+            <span class="stat-value" id="statVolume">--</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">시가총액</span>
+            <span class="stat-value" id="statMktCap">--</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">P/E 비율</span>
+            <span class="stat-value" id="statPE">--</span>
+          </div>
+          <div class="stat-item metric-extra hidden" id="statEpsWrap">
+            <span class="stat-label">EPS</span>
+            <span class="stat-value" id="statEPS">--</span>
+          </div>
+          <div class="stat-item metric-extra hidden" id="statRoeWrap">
+            <span class="stat-label">ROE</span>
+            <span class="stat-value" id="statROE">--</span>
+          </div>
+          <div class="stat-item metric-extra hidden" id="statBetaWrap">
+            <span class="stat-label">베타</span>
+            <span class="stat-value" id="statBeta">--</span>
+          </div>
+          <div class="stat-item metric-extra hidden" id="statDivWrap">
+            <span class="stat-label">배당수익률</span>
+            <span class="stat-value" id="statDivYield">--</span>
+          </div>
+        </div>
+        <div class="modal-news" id="modalNewsBlock">
+          <h4 class="modal-section-title">최근 뉴스</h4>
+          <div class="modal-news-list" id="modalNewsList">
+            <p class="modal-news-placeholder">불러오는 중...</p>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Toast notifications -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

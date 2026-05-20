@@ -1,0 +1,28 @@
+{
+  "name": "stockpulse",
+  "version": "1.0.0",
+  "private": true,
+  "description": "실시간 주식 트래커 — StockPulse (monorepo root)",
+  "scripts": {
+    "start": "npm start --prefix backend",
+    "dev": "npm run dev --prefix backend",
+    "install:all": "npm install && npm install --prefix backend",
+    "qa": "node scripts/qa.mjs",
+    "qa:prod": "node scripts/qa-prod.mjs",
+    "build:kr-stocks": "node scripts/build-kr-stocks.mjs",
+    "fix:pwa": "node scripts/fix-pwa-assets.mjs",
+    "vercel": "vercel",
+    "vercel:prod": "vercel deploy --prod",
+    "clean": "node -e \"const fs=require('fs');const p=['node_modules','backend/node_modules','.vercel'];for(const x of p){fs.rmSync(x,{recursive:true,force:true});console.log('removed:',x||'(skip)')}\""
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "ws": "^8.18.1"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.0.4",
+    "sharp": "^0.34.5",
+    "vercel": "^54.1.0"
+  }
+}

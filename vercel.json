@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "framework": null,
+  "installCommand": "npm install && npm install --prefix backend",
+  "buildCommand": "npm run build:kr-stocks && node scripts/patch-og-url.mjs",
+  "outputDirectory": "frontend",
+  "functions": {
+    "api/[[...slug]].js": {
+      "maxDuration": 30,
+      "includeFiles": "backend/**"
+    }
+  }
+}
