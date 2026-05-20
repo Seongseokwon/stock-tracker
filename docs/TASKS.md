@@ -1,6 +1,6 @@
 # StockPulse — 작업 목록
 
-**최종 갱신:** 2026-05-20 (DS-* 완료 · Git 초기화 · CORS · Docker 이미지 준비)  
+**최종 갱신:** 2026-05-20 (DS-* 완료 · Git 초기화 · CORS · Docker · 로그인 UI)  
 **프로덕션:** https://stock-tracker-opal-six.vercel.app  
 **마스터 문서:** [HANDOFF.md](./HANDOFF.md)
 
@@ -21,6 +21,7 @@
 | RW-6 | CORS — `CORS_ORIGINS` 미들웨어 (`server.js`) | 2026-05-20 |
 | — | `railway.json` 생성 후 제거 (CLI 네트워크 이슈로 Docker 방식 전환) | 2026-05-20 |
 | — | `Dockerfile` + `.dockerignore` 생성, 빌드·헬스체크 로컬 검증 완료 | 2026-05-20 |
+| L-6 | `login.html` UI — 1회용 코드 폼 + 이메일/Slack FAB | 2026-05-20 |
 | — | 수익화·법적 고지 문서 (`MONETIZATION`, `LEGAL-DISCLAIMER`) | 2026-05-19 |
 | — | Vercel API 라우팅 (`api/[[...slug]].js`) | 2026-05-19 |
 | — | OG 메타·`og-image.png` | 2026-05-19 |
@@ -105,7 +106,7 @@
 | L-3 | 세션 (`/api/auth/me`, logout, HttpOnly 쿠키) | ⬜ |
 | L-4 | `GET/PUT/POST/DELETE /api/watchlist` | ⬜ |
 | L-5 | 운영자 코드 생성 (`ADMIN_SECRET`, `npm run auth:code`) | ⬜ |
-| L-6 | 프론트 로그인 모달·로그아웃 UI | ⬜ |
+| L-6 | 프론트 로그인 페이지 (`login.html`) | ✅ 2026-05-20 — 로그아웃 UI는 L-3 완료 후 |
 | L-7 | 관심종목 추가/삭제 → 서버 동기화 (`app.js`) | ⬜ |
 | L-8 | 로그인 시 서버↔localStorage 병합 정책·QA | ⬜ |
 | L-9 | (선택) 포트폴리오·알림 DB 확장 | ⬜ |

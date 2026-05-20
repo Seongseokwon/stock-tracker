@@ -3,7 +3,7 @@
 > **이 파일 하나만 읽어도** 프로젝트의 목적·구조·현황·제약·향후 방향을 파악할 수 있도록 작성했습니다.  
 > 다른 AI·개발자 온보딩용 **마스터 문서**입니다.
 
-**문서 버전:** 2026-05-20 (DS-* 완료 · Railway 배포 준비 · Git 초기화 · Docker 이미지 준비)  
+**문서 버전:** 2026-05-20 (DS-* 완료 · Railway CORS+Docker 준비 · Git 초기화 · 로그인 UI)  
 **프로덕션 URL:** https://stock-tracker-opal-six.vercel.app  
 **로컬 실행:** `npm start` → http://localhost:3000  
 **Git:** ✅ 초기 커밋 완료 (`41363fc`, 2026-05-20) — branch: `main`
@@ -37,6 +37,7 @@
 stock-tracker/
 ├── frontend/                 # 정적 UI (Vercel outputDirectory)
 │   ├── index.html
+│   ├── login.html            # 1회용 코드 로그인 페이지 (L-6 UI 완료)
 │   ├── style.css
 │   ├── app.js                # 전체 클라이언트 로직
 │   ├── manifest.json         # PWA (192/512 PNG, screenshots)
@@ -323,6 +324,15 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 ### 11.4 4순위 — MVP 로그인·DB
 
 > [AUTH-MVP.md](./AUTH-MVP.md) — 일회용 코드 · `watchlist_items` 서버 저장 (L-0~L-8)
+
+| ID | 상태 | 내용 |
+|----|------|------|
+| L-6 | ✅ | `login.html` — 1회용 코드 입력 폼, 이메일/Slack 코드 요청 FAB |
+| L-0~5, L-7~9 | ⬜ | DB·세션·API 미구현 — Railway 배포 후 진행 |
+
+**login.html 위치:** `frontend/login.html` → `/login.html` (로컬·Railway 모두 서빙됨)  
+**연동 대기 중:** `POST /api/auth/login` (L-2) 구현 후 실제 로그인 동작  
+**Slack 링크 수정 필요:** `#slackRequestBtn` href를 실제 워크스페이스 채널로 교체
 
 ### 11.5 5순위 — AI 종목 브리핑 (관심종목 클릭)
 
