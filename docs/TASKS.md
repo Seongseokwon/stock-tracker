@@ -1,6 +1,6 @@
 # StockPulse — 작업 목록
 
-**최종 갱신:** 2026-05-20 (DS-* 완료 · Git 초기화 · Railway CORS 준비)  
+**최종 갱신:** 2026-05-20 (DS-* 완료 · Git 초기화 · CORS · Docker 이미지 준비)  
 **프로덕션:** https://stock-tracker-opal-six.vercel.app  
 **마스터 문서:** [HANDOFF.md](./HANDOFF.md)
 
@@ -19,7 +19,8 @@
 | DS-0~9 | 디자인 리디자인 (Minimal + Glass Hybrid) | 2026-05-20 |
 | O-5 | Git 초기화·첫 커밋 (`41363fc`) | 2026-05-20 |
 | RW-6 | CORS — `CORS_ORIGINS` 미들웨어 (`server.js`) | 2026-05-20 |
-| — | `railway.json` 생성 (deploy config, healthcheck) | 2026-05-20 |
+| — | `railway.json` 생성 후 제거 (CLI 네트워크 이슈로 Docker 방식 전환) | 2026-05-20 |
+| — | `Dockerfile` + `.dockerignore` 생성, 빌드·헬스체크 로컬 검증 완료 | 2026-05-20 |
 | — | 수익화·법적 고지 문서 (`MONETIZATION`, `LEGAL-DISCLAIMER`) | 2026-05-19 |
 | — | Vercel API 라우팅 (`api/[[...slug]].js`) | 2026-05-19 |
 | — | OG 메타·`og-image.png` | 2026-05-19 |
@@ -37,8 +38,8 @@
 
 | ID | 타스크 | 상태 |
 |----|--------|------|
-| RW-0 | Railway 프로젝트·배포 방식 (Git / CLI) | 🔄 CLI 로그인 완료, 네트워크 이슈로 init 대기 |
-| RW-1 | Railway 서비스 (`backend/`, `npm start`) | 🔄 `railway.json` 생성 완료, 서비스 생성 대기 |
+| RW-0 | Railway 프로젝트·배포 방식 결정 | 🔄 CLI 네트워크 이슈 → **Docker Hub 이미지 배포 방식으로 전환** |
+| RW-1 | Docker 이미지 빌드·Hub push | 🔄 빌드 완료, Docker Hub push 대기 |
 | RW-2 | 환경 변수 `FINNHUB_API_KEY` ( **`VERCEL` 설정 금지** ) | ⬜ |
 | RW-3 | 배포 후 `/api/health` → `wsSupported: true` | ⬜ |
 | RW-4 | 공개 HTTPS URL (`*.up.railway.app`) | ⬜ |

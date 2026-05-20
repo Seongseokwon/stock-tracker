@@ -3,7 +3,7 @@
 > **이 파일 하나만 읽어도** 프로젝트의 목적·구조·현황·제약·향후 방향을 파악할 수 있도록 작성했습니다.  
 > 다른 AI·개발자 온보딩용 **마스터 문서**입니다.
 
-**문서 버전:** 2026-05-20 (DS-* 완료 · Railway 배포 준비 · Git 초기화)  
+**문서 버전:** 2026-05-20 (DS-* 완료 · Railway 배포 준비 · Git 초기화 · Docker 이미지 준비)  
 **프로덕션 URL:** https://stock-tracker-opal-six.vercel.app  
 **로컬 실행:** `npm start` → http://localhost:3000  
 **Git:** ✅ 초기 커밋 완료 (`41363fc`, 2026-05-20) — branch: `main`
@@ -45,7 +45,8 @@ stock-tracker/
 │   ├── og-image.png          # 카카오/OG 링크 미리보기
 │   ├── icon-192.svg          # 레거시 favicon 대체 가능
 │   └── screenshots/          # PWA wide/narrow
-├── railway.json              # Railway 배포 설정 (startCommand, healthcheck)
+├── Dockerfile                # 백엔드 Docker 이미지 (node:18-alpine, 프로덕션 only)
+├── .dockerignore             # Docker 빌드 제외 목록
 ├── backend/
 │   ├── server.js             # Express 앱 export + 로컬 HTTP/WS + CORS 미들웨어
 │   ├── kr-search.js          # 한글 로컬 검색 (priority, aliases)
@@ -278,9 +279,10 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 
 | ID | 작업 | 요약 |
 |----|------|------|
-| RW-0~RW-4 | Railway 서비스·env·배포 | `railway.json` 생성 완료, CLI 배포 대기 중 |
+| RW-0~RW-4 | Railway 서비스·env·배포 | Docker 이미지 방식으로 전환, Hub push 대기 중 |
 | RW-5 | 프론트 API_BASE/WS_URL | Railway URL 확정 후 진행 |
 | RW-6 | CORS | ✅ `CORS_ORIGINS` 미들웨어 (`server.js`) |
+| Docker | Dockerfile + 빌드·테스트 | ✅ `wsSupported: true` 로컬 확인 완료 |
 | RW-7~RW-8 | QA·역할 분담 | `wsSupported: true`, Vercel API 유지 여부 |
 | RW-9 | (선택) | Railway Postgres + L-* |
 
