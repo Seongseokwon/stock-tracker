@@ -1,6 +1,6 @@
 # StockPulse — 작업 목록
 
-**최종 갱신:** 2026-05-20 (DS-* 디자인 리디자인 완료)  
+**최종 갱신:** 2026-05-20 (DS-* 완료 · Git 초기화 · Railway CORS 준비)  
 **프로덕션:** https://stock-tracker-opal-six.vercel.app  
 **마스터 문서:** [HANDOFF.md](./HANDOFF.md)
 
@@ -17,6 +17,9 @@
 | O-6 | 문서 동기화 (전체 docs·README·PROJECT) | 2026-05-19 |
 | O-7 | AI 핸드오프 문서 `HANDOFF.md` | 2026-05-19 |
 | DS-0~9 | 디자인 리디자인 (Minimal + Glass Hybrid) | 2026-05-20 |
+| O-5 | Git 초기화·첫 커밋 (`41363fc`) | 2026-05-20 |
+| RW-6 | CORS — `CORS_ORIGINS` 미들웨어 (`server.js`) | 2026-05-20 |
+| — | `railway.json` 생성 (deploy config, healthcheck) | 2026-05-20 |
 | — | 수익화·법적 고지 문서 (`MONETIZATION`, `LEGAL-DISCLAIMER`) | 2026-05-19 |
 | — | Vercel API 라우팅 (`api/[[...slug]].js`) | 2026-05-19 |
 | — | OG 메타·`og-image.png` | 2026-05-19 |
@@ -34,13 +37,13 @@
 
 | ID | 타스크 | 상태 |
 |----|--------|------|
-| RW-0 | Railway 프로젝트·배포 방식 (Git / CLI) | ⬜ |
-| RW-1 | Railway 서비스 (`backend/`, `npm start`) | ⬜ |
+| RW-0 | Railway 프로젝트·배포 방식 (Git / CLI) | 🔄 CLI 로그인 완료, 네트워크 이슈로 init 대기 |
+| RW-1 | Railway 서비스 (`backend/`, `npm start`) | 🔄 `railway.json` 생성 완료, 서비스 생성 대기 |
 | RW-2 | 환경 변수 `FINNHUB_API_KEY` ( **`VERCEL` 설정 금지** ) | ⬜ |
 | RW-3 | 배포 후 `/api/health` → `wsSupported: true` | ⬜ |
 | RW-4 | 공개 HTTPS URL (`*.up.railway.app`) | ⬜ |
-| RW-5 | 프론트 `API_BASE`·`WS_URL` Railway 연동 | ⬜ |
-| RW-6 | CORS — Vercel origin 허용 | ⬜ |
+| RW-5 | 프론트 `API_BASE`·`WS_URL` Railway 연동 | ⬜ RW-4 완료 후 |
+| RW-6 | CORS — Vercel origin 허용 | ✅ 2026-05-20 |
 | RW-7 | `qa:prod` / `QA_API_BASE` 프로덕션 API 검사 | ⬜ |
 | RW-8 | Vercel API 유지 vs Railway 전용 역할 문서화 | ⬜ |
 | RW-9 | (선택) Railway Postgres + L-* DB | ⬜ |
@@ -75,7 +78,7 @@
 
 | ID | 타스크 | 상태 | 담당 |
 |----|--------|------|------|
-| O-5 | Git 초기화·첫 커밋 | ⬜ | 원할 때 |
+| O-5 | Git 초기화·첫 커밋 | ✅ 2026-05-20 |
 
 ---
 
@@ -85,7 +88,7 @@
 |----|--------|------|
 | D-2b | PWA 설치·바탕화면 아이콘 최종 확인 | ⬜ | [PWA-INSTALL.md](./PWA-INSTALL.md) (manifest 변경 시 재설치) |
 | D-3 | 배포 후 Functions 로그 점검 | ⬜ |
-| D-4 | `og-image.png` / `icon-512.png` / screenshots 용량 최적화 | ⬜ | icon-512 ~187KB, desktop-wide ~895KB |
+| D-4 | `og-image.png` / `icon-512.png` / screenshots 용량 최적화 | ✅ 허용 범위 (icon-192: 28KB, icon-512: 196KB, og-image: 120KB, desktop-wide: 115KB) |
 
 ---
 

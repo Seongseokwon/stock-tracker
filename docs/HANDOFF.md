@@ -3,10 +3,10 @@
 > **이 파일 하나만 읽어도** 프로젝트의 목적·구조·현황·제약·향후 방향을 파악할 수 있도록 작성했습니다.  
 > 다른 AI·개발자 온보딩용 **마스터 문서**입니다.
 
-**문서 버전:** 2026-05-20 (DS-* 디자인 리디자인 완료)  
+**문서 버전:** 2026-05-20 (DS-* 완료 · Railway 배포 준비 · Git 초기화)  
 **프로덕션 URL:** https://stock-tracker-opal-six.vercel.app  
 **로컬 실행:** `npm start` → http://localhost:3000  
-**Git:** 아직 초기 커밋 없음 (사용자 선택 시 진행)
+**Git:** ✅ 초기 커밋 완료 (`41363fc`, 2026-05-20) — branch: `main`
 
 ---
 
@@ -45,8 +45,9 @@ stock-tracker/
 │   ├── og-image.png          # 카카오/OG 링크 미리보기
 │   ├── icon-192.svg          # 레거시 favicon 대체 가능
 │   └── screenshots/          # PWA wide/narrow
+├── railway.json              # Railway 배포 설정 (startCommand, healthcheck)
 ├── backend/
-│   ├── server.js             # Express 앱 export + 로컬 HTTP/WS
+│   ├── server.js             # Express 앱 export + 로컬 HTTP/WS + CORS 미들웨어
 │   ├── kr-search.js          # 한글 로컬 검색 (priority, aliases)
 │   ├── data/kr-stocks.json   # 빌드 스크립트로 생성 (~247종)
 │   ├── .env                  # FINNHUB_API_KEY (git 제외)
@@ -213,7 +214,7 @@ stock-tracker/
 | O-2 `npm run qa:prod` | ✅ **43/43 PASS** (2026-05-19 확인) |
 | O-3 브라우저 수동 QA | ✅ 사용자 완료 |
 | O-4 카카오 링크 미리보기 | ✅ |
-| O-5 Git 첫 커밋 | ⬜ 미진행 |
+| O-5 Git 첫 커밋 | ✅ 2026-05-20 (`41363fc`) |
 | D-2 / D-5 PWA 512·192 PNG + screenshots | ✅ (`npm run fix:pwa`) |
 | D-2b PWA 설치·바탕화면 아이콘 | ⬜ 사용자 최종 확인 |
 | O-6 / O-7 문서·HANDOFF | ✅ 2026-05-20 |
@@ -249,7 +250,7 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 | Vercel API | WS 없음, serverless 30s (→ **Railway로 API 이전 예정**) |
 | 포트폴리오 원화 | Frankfurter **일일** 환율 |
 | 데이터 영속성 | 현재 localStorage만 · **L-* 후 로그인 사용자는 DB 관심목록** |
-| Git | 미초기화 — 백업은 JSON export 의존 |
+| Git | ✅ 초기화 완료 (`main` 브랜치, `41363fc`) |
 
 ---
 
@@ -277,8 +278,9 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 
 | ID | 작업 | 요약 |
 |----|------|------|
-| RW-0~RW-4 | Railway 서비스·env·배포 | `backend/`, `FINNHUB_API_KEY`, **`VERCEL` 미설정** |
-| RW-5~RW-6 | 프론트·CORS | `API_BASE` / `WS_URL` → Railway, Vercel origin 허용 |
+| RW-0~RW-4 | Railway 서비스·env·배포 | `railway.json` 생성 완료, CLI 배포 대기 중 |
+| RW-5 | 프론트 API_BASE/WS_URL | Railway URL 확정 후 진행 |
+| RW-6 | CORS | ✅ `CORS_ORIGINS` 미들웨어 (`server.js`) |
 | RW-7~RW-8 | QA·역할 분담 | `wsSupported: true`, Vercel API 유지 여부 |
 | RW-9 | (선택) | Railway Postgres + L-* |
 
@@ -306,7 +308,7 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 | O-5 | Git 초기화·첫 커밋 | `.env`, `.vercel`, `node_modules` 제외 |
 | D-2b | PWA 설치·바탕화면 아이콘 최종 확인 | [docs/PWA-INSTALL.md](./PWA-INSTALL.md) |
 | D-3 | Vercel Functions 로그 | 429·타임아웃 |
-| D-4 | `og-image.png`·`icon-512.png` 용량 최적화 | 현재 PNG 수 MB대 |
+| D-4 | `og-image.png`·`icon-512.png` 용량 최적화 | icon-192: 28KB · icon-512: 196KB · og-image: 120KB — 허용 범위 |
 
 ### 11.3 3순위 — Vercel·PWA
 

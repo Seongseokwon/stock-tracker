@@ -24,6 +24,23 @@ const { hasHangul, searchKrLocal, mergeSearchResults } = require('./kr-search');
 const app = express();
 const isVercel = Boolean(process.env.VERCEL);
 
+// CORS — Railway 배포 시 Vercel 프론트 cross-origin 허용
+const CORS_ORIGINS = (
+  process.env.CORS_ORIGINS ||
+  'https://stock-tracker-opal-six.vercel.app,http://localhost:3000'
+).split(',').filter(Boolean);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && CORS_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  next();
+});
+
 if (!isVercel) {
   app.use(express.static(FRONTEND_DIR));
 }

@@ -1,6 +1,6 @@
 # Railway 백엔드 배포
 
-**최종 갱신:** 2026-05-19  
+**최종 갱신:** 2026-05-20  
 **작업 ID:** RW-0 ~ RW-9 ([TASKS.md](./TASKS.md))
 
 ---
@@ -79,13 +79,13 @@ npm install --prefix backend && npm start --prefix backend
 
 | ID | 작업 | 상태 |
 |----|------|------|
-| RW-0 | Railway 계정·프로젝트·배포 방식 결정 (Git vs CLI) | ⬜ |
-| RW-1 | Railway 서비스 생성 (`backend` 루트, Node 18+) | ⬜ |
+| RW-0 | Railway 계정·프로젝트·배포 방식 결정 (Git vs CLI) | 🔄 CLI 로그인 완료 |
+| RW-1 | Railway 서비스 생성 (`backend` 루트, Node 18+) | 🔄 `railway.json` 생성 완료 |
 | RW-2 | `FINNHUB_API_KEY` 등 환경 변수 등록 | ⬜ |
 | RW-3 | 첫 배포·`/api/health`·`wsSupported: true` 확인 | ⬜ |
 | RW-4 | 공개 URL 발급·HTTPS (`*.up.railway.app`) | ⬜ |
-| RW-5 | 프론트 `API_BASE`·`WS_URL` Railway 연동 | ⬜ |
-| RW-6 | CORS (Vercel origin → Railway API 허용) | ⬜ |
+| RW-5 | 프론트 `API_BASE`·`WS_URL` Railway 연동 | ⬜ RW-4 완료 후 |
+| RW-6 | CORS (Vercel origin → Railway API 허용) | ✅ 2026-05-20 |
 | RW-7 | `qa:prod` 분리 또는 `QA_API_BASE` env | ⬜ |
 | RW-8 | Vercel rewrites vs 직접 cross-origin 정리·문서화 | ⬜ |
 | RW-9 | (선택) Railway에 DB(L-*) 동일 호스트 배치 | ⬜ |
