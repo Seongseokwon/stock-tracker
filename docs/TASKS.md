@@ -20,6 +20,7 @@
 | O-7 | AI 핸드오프 문서 `HANDOFF.md` | 2026-05-19 |
 | DS-0~9 | 디자인 리디자인 (Minimal + Glass Hybrid) | 2026-05-20 |
 | DS-10 | PWA 스크린샷 갱신 (실제 앱 Puppeteer 캡처 · Vercel 재배포) | 2026-05-21 |
+| D-3 | Vercel Functions 로그 점검 — N/A (api/ 삭제, Railway rewrite만 사용) | 2026-05-21 |
 | RW-0 | Railway 프로젝트·서비스 생성 | 2026-05-21 |
 | RW-1 | Dockerfile `backend/` build context 수정·배포 | 2026-05-21 |
 | RW-2 | Railway 환경변수 `FINNHUB_API_KEY`, `SESSION_SECRET`, `ADMIN_SECRET` | 2026-05-21 |
@@ -47,23 +48,15 @@
 
 ---
 
-## 1순위 — Vercel·PWA
-
-| ID | 타스크 | 상태 |
-|----|--------|------|
-| D-3 | 배포 후 Vercel Functions 로그 점검 (429·타임아웃) | ⬜ |
-
----
-
-## 3순위 — MVP 로그인·DB (재사용 가능 로그인 코드)
+## 1순위 — MVP 로그인·DB (재사용 가능 로그인 코드)
 
 > 기획: [AUTH-MVP.md](./AUTH-MVP.md) — 코드 입력만 로그인, **관심종목 서버 저장**
 
 | ID | 타스크 | 상태 |
 |----|--------|------|
-| L-4 | `GET/PUT/POST/DELETE /api/watchlist` | ⬜ DB 연결 완료, 구현 대기 |
-| L-7 | 관심종목 추가/삭제 → 서버 동기화 (`app.js`) | ⬜ L-4 완료 후 |
-| L-8 | 로그인 시 서버↔localStorage 병합 정책·QA | ⬜ |
+| L-4 | `GET/PUT/POST/DELETE /api/watchlist` | ✅ 2026-05-21 |
+| L-7 | 관심종목 추가/삭제 → 서버 동기화 (`app.js`) | ✅ 2026-05-21 |
+| L-8 | 로그인 시 서버↔localStorage 병합 (`syncWatchlistWithServer`) | ✅ 2026-05-21 |
 | L-10 | (선택) 포트폴리오·알림 DB 확장 | ⬜ |
 
 ---

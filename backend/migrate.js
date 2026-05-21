@@ -20,7 +20,7 @@ async function migrate() {
 
   const migrations = [
     '001_auth.sql',
-    // 추가 마이그레이션 파일을 여기에 나열
+    '002_watchlist.sql',
   ];
 
   try {

@@ -346,6 +346,115 @@ app.post('/api/auth/logout', async (req, res) => {
   res.json({ ok: true });
 });
 
+/* --- Auth 미들웨어 --- */
+async function requireAuth(req, res, next) {
+  const cookies = parseCookies(req);
+  const payload = verifySessionToken(cookies.sp_sess);
+  if (!payload) return res.status(401).json({ error: 'unauthorized' });
+
+  if (payload.src === 'db' && db.pool && cookies.sp_sess) {
+    try {
+      const tokenHash = crypto.createHash('sha256').update(cookies.sp_sess).digest('hex');
+      const result = await db.query(
+        'SELECT id FROM sessions WHERE token_hash = $1 AND expires_at > NOW()',
+        [tokenHash]
+      );
+      if (!result || result.rows.length === 0) {
+        return res.status(401).json({ error: 'unauthorized' });
+      }
+    } catch (err) {
+      console.error('[requireAuth] DB error:', err.message);
+    }
+  }
+
+  req.userId = payload.uid || null;
+  next();
+}
+
+/* --- Watchlist CRUD --- */
+app.get('/api/watchlist', requireAuth, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  if (!db.pool || !req.userId) return res.json({ symbols: [] });
+  try {
+    const result = await db.query(
+      'SELECT symbol FROM watchlist_items WHERE user_id = $1 ORDER BY sort_order, added_at',
+      [req.userId]
+    );
+    res.json({ symbols: result.rows.map(r => r.symbol) });
+  } catch (err) {
+    console.error('[watchlist GET]', err.message);
+    res.json({ symbols: [] });
+  }
+});
+
+app.post('/api/watchlist', requireAuth, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const symbol = (req.body?.symbol || '').toUpperCase().trim();
+  if (!symbol) return res.status(400).json({ error: 'symbol_required' });
+  if (!db.pool || !req.userId) return res.json({ ok: true });
+  try {
+    const cnt = await db.query(
+      'SELECT COUNT(*) FROM watchlist_items WHERE user_id = $1', [req.userId]
+    );
+    if (parseInt(cnt.rows[0].count) >= 20) {
+      return res.status(400).json({ error: 'max_20' });
+    }
+    const market = (symbol.endsWith('.KS') || symbol.endsWith('.KQ')) ? 'KR' : 'US';
+    await db.query(
+      `INSERT INTO watchlist_items (user_id, symbol, market, sort_order)
+       VALUES ($1, $2, $3, (SELECT COALESCE(MAX(sort_order) + 1, 0) FROM watchlist_items WHERE user_id = $1))
+       ON CONFLICT (user_id, symbol) DO NOTHING`,
+      [req.userId, symbol, market]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    // FK 위반: user가 DB에 없는 세션 → 조용히 성공 반환 (localStorage fallback)
+    if (err.code === '23503') return res.json({ ok: true });
+    console.error('[watchlist POST]', err.message);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+app.delete('/api/watchlist/:symbol', requireAuth, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const symbol = req.params.symbol.toUpperCase();
+  if (!db.pool || !req.userId) return res.json({ ok: true });
+  try {
+    await db.query(
+      'DELETE FROM watchlist_items WHERE user_id = $1 AND symbol = $2',
+      [req.userId, symbol]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[watchlist DELETE]', err.message);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+app.put('/api/watchlist', requireAuth, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const symbols = req.body?.symbols;
+  if (!Array.isArray(symbols)) return res.status(400).json({ error: 'symbols_required' });
+  if (!db.pool || !req.userId) return res.json({ ok: true });
+  try {
+    await db.query('DELETE FROM watchlist_items WHERE user_id = $1', [req.userId]);
+    for (let i = 0; i < Math.min(symbols.length, 20); i++) {
+      const sym = symbols[i].toUpperCase().trim();
+      if (!sym) continue;
+      const market = (sym.endsWith('.KS') || sym.endsWith('.KQ')) ? 'KR' : 'US';
+      await db.query(
+        `INSERT INTO watchlist_items (user_id, symbol, market, sort_order) VALUES ($1, $2, $3, $4)`,
+        [req.userId, sym, market, i]
+      );
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.code === '23503') return res.json({ ok: true });
+    console.error('[watchlist PUT]', err.message);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
 /* --- Admin: 로그인 코드 생성 --- */
 app.post('/api/admin/codes', async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');

@@ -114,6 +114,7 @@ let activeKrSuffix = 'KS'; // 'KS' (KOSPI) or 'KQ' (KOSDAQ)
 // State
 const state = {
   watchlist: JSON.parse(localStorage.getItem('sp_watchlist') || '[]'),
+  uid: null,
   prices: {},       // { symbol: { price, prevPrice, change, pctChange, open, high, low, volume } }
   history: {},      // { symbol: [price, price, ...] } (last 60 data points)
   ws: null,
@@ -317,8 +318,38 @@ async function checkSession() {
     const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
     if (!res.ok) return false;
     const data = await res.json();
+    if (data.loggedIn) state.uid = data.uid || null;
     return data.loggedIn === true;
   } catch { return false; }
+}
+
+async function syncWatchlistWithServer() {
+  if (!state.uid) return;
+  try {
+    const res = await fetch('/api/watchlist', { credentials: 'same-origin' });
+    if (!res.ok) return;
+    const { symbols: serverSymbols } = await res.json();
+
+    const local = state.watchlist;
+    // 로컬 순서 유지하면서 서버에만 있는 항목 뒤에 추가
+    const merged = [...local];
+    for (const sym of serverSymbols) {
+      if (!merged.includes(sym)) merged.push(sym);
+    }
+    // 서버에 없는 로컬 항목 서버로 업로드
+    for (const sym of local) {
+      if (!serverSymbols.includes(sym)) {
+        fetch('/api/watchlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ symbol: sym }),
+        }).catch(() => {});
+      }
+    }
+    state.watchlist = merged;
+    saveWatchlist();
+  } catch { /* 실패 시 localStorage 유지 */ }
 }
 
 // bfcache(뒤로 가기 캐시)로 복원 시 세션 재검증
@@ -336,6 +367,9 @@ async function logout() {
 async function init() {
   const loggedIn = await checkSession();
   if (!loggedIn) { window.location.href = '/login.html'; return; }
+
+  await syncWatchlistWithServer();
+
   document.body.style.visibility = 'visible';
 
   ensureModalOnBody();
@@ -796,6 +830,14 @@ async function addStock(symbol) {
   if (hasUSSymbols() && !state.wsConnected) connectWebSocket();
   updateConnectionStatus();
   syncGlobalPolling();
+  if (state.uid) {
+    fetch('/api/watchlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ symbol }),
+    }).catch(() => {});
+  }
   showToast(`${symbol} 추가 완료!`, 'success');
 }
 
@@ -865,6 +907,12 @@ function removeStock(symbol, options = {}) {
   wsUnsubscribe(symbol);
   delete state.cardErrors[symbol];
   saveWatchlist();
+  if (state.uid) {
+    fetch(`/api/watchlist/${encodeURIComponent(symbol)}`, {
+      method: 'DELETE',
+      credentials: 'same-origin',
+    }).catch(() => {});
+  }
   renderWatchlist();
   if (!hasUSSymbols() && state.ws) {
     state.ws.close();
