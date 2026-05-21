@@ -469,9 +469,10 @@ app.post('/api/admin/codes', async (req, res) => {
     return res.status(503).json({ error: 'database_not_available' });
   }
 
-  const { code: customCode, days = 30, note = null } = req.body || {};
+  const { code: customCode, days = 365, note = null } = req.body || {};
 
   // 코드 결정: body.code 지정 시 사용, 아니면 랜덤 생성
+  const isGenerated = !customCode;
   const code = customCode
     ? customCode.toUpperCase().trim()
     : `SP-${crypto.randomBytes(4).toString('hex').toUpperCase().slice(0, 4)}-${crypto.randomBytes(4).toString('hex').toUpperCase().slice(0, 4)}`;
@@ -485,7 +486,7 @@ app.post('/api/admin/codes', async (req, res) => {
       [codeHash, note, String(days)]
     );
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-    res.json({ ok: true, code, expiresAt });
+    res.json({ ok: true, code, expiresAt, generated: isGenerated });
   } catch (err) {
     if (err.code === '23505') {
       return res.status(409).json({ error: 'code_already_exists', code });
