@@ -15,7 +15,11 @@ const { WebSocketServer, WebSocket } = require('ws');
 const PORT = process.env.PORT || 3000;
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-me';
-const AUTH_CODE = (process.env.AUTH_CODE || '').toUpperCase().trim();
+// 쉼표로 구분된 여러 코드 지원: "SP-DEMO-0000,SP-USER-0001"
+const AUTH_CODES = (process.env.AUTH_CODE || '')
+  .split(',')
+  .map((c) => c.toUpperCase().trim())
+  .filter(Boolean);
 const FINNHUB_REST = 'https://finnhub.io/api/v1';
 const YAHOO_CHART = 'https://query1.finance.yahoo.com/v8/finance/chart';
 const YAHOO_SUMMARY = 'https://query1.finance.yahoo.com/v10/finance/quoteSummary';
@@ -205,7 +209,7 @@ function parseCookies(req) {
 /* --- Auth routes --- */
 app.post('/api/auth/login', (req, res) => {
   const code = (req.body?.code || '').toUpperCase().trim();
-  if (!code || !AUTH_CODE || code !== AUTH_CODE) {
+  if (!code || AUTH_CODES.length === 0 || !AUTH_CODES.includes(code)) {
     return res.status(401).json({ error: 'invalid_code' });
   }
   const token = createSessionToken();
