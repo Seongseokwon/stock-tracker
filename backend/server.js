@@ -207,19 +207,24 @@ function parseCookies(req) {
 }
 
 /* --- Auth routes --- */
+// HTTPS(Vercel/프로덕션)에서 Secure 플래그 필수
+const COOKIE_SECURE = isVercel ? '; Secure' : '';
+const COOKIE_BASE = `HttpOnly; SameSite=Lax; Path=/${COOKIE_SECURE}`;
+
 app.post('/api/auth/login', (req, res) => {
   const code = (req.body?.code || '').toUpperCase().trim();
   if (!code || AUTH_CODES.length === 0 || !AUTH_CODES.includes(code)) {
+    res.setHeader('Cache-Control', 'no-store');
     return res.status(401).json({ error: 'invalid_code' });
   }
   const token = createSessionToken();
-  res.setHeader('Set-Cookie',
-    `sp_sess=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${7 * 24 * 3600}`
-  );
+  res.setHeader('Set-Cookie', `sp_sess=${token}; ${COOKIE_BASE}; Max-Age=${7 * 24 * 3600}`);
+  res.setHeader('Cache-Control', 'no-store');
   res.json({ ok: true });
 });
 
 app.get('/api/auth/me', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
   const cookies = parseCookies(req);
   const payload = verifySessionToken(cookies.sp_sess);
   if (!payload) return res.status(401).json({ loggedIn: false });
@@ -227,7 +232,8 @@ app.get('/api/auth/me', (req, res) => {
 });
 
 app.post('/api/auth/logout', (req, res) => {
-  res.setHeader('Set-Cookie', 'sp_sess=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');
+  res.setHeader('Set-Cookie', `sp_sess=; ${COOKIE_BASE}; Max-Age=0`);
+  res.setHeader('Cache-Control', 'no-store');
   res.json({ ok: true });
 });
 
