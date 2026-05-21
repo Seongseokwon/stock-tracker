@@ -16,6 +16,16 @@
       var t = localStorage.getItem('sp_theme');
       if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
     })();
+    // 이미 로그인 상태면 대시보드로 리다이렉트
+    (async function () {
+      try {
+        var r = await fetch('/api/auth/me', { credentials: 'same-origin' });
+        if (r.ok) {
+          var d = await r.json();
+          if (d.loggedIn) window.location.replace('/');
+        }
+      } catch (_) { /* 네트워크 오류 무시 — 로그인 폼 표시 */ }
+    })();
   </script>
 </head>
 <body class="login-page">

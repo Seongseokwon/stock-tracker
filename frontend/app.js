@@ -310,12 +310,19 @@ function ensureModalOnBody() {
 
 async function checkSession() {
   try {
-    const res = await fetch('/api/auth/me');
+    const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
     if (!res.ok) return false;
     const data = await res.json();
     return data.loggedIn === true;
   } catch { return false; }
 }
+
+// bfcache(뒤로 가기 캐시)로 복원 시 세션 재검증
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) {
+    checkSession().then((ok) => { if (!ok) window.location.replace('/login.html'); });
+  }
+});
 
 async function logout() {
   await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});

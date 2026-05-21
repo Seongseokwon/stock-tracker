@@ -46,6 +46,13 @@ app.use((req, res, next) => {
 });
 
 if (!isVercel) {
+  // 대시보드(/) 서버 사이드 인증 가드 — 쿠키 없으면 login.html 리다이렉트
+  app.get('/', (req, res, next) => {
+    const cookies = parseCookies(req);
+    const payload = verifySessionToken(cookies.sp_sess);
+    if (!payload) return res.redirect('/login.html');
+    next(); // 인증 OK → express.static 이 index.html 서빙
+  });
   app.use(express.static(FRONTEND_DIR));
 }
 app.use(express.json());
