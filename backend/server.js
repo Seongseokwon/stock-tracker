@@ -15,6 +15,7 @@ const { WebSocketServer, WebSocket } = require('ws');
 const PORT = process.env.PORT || 3000;
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-me';
+const ADMIN_SECRET   = process.env.ADMIN_SECRET || '';
 // 쉼표로 구분된 여러 코드 지원: "SP-DEMO-0000,SP-USER-0001"
 const AUTH_CODES = (process.env.AUTH_CODE || '')
   .split(',')
@@ -223,20 +224,25 @@ app.post('/api/auth/login', async (req, res) => {
   let src = 'env';
 
   if (db.pool) {
-    // DB 1회용 코드 조회
     const codeHash = crypto.createHash('sha256').update(code).digest('hex');
     try {
-      const result = await db.query(
-        `SELECT id, user_id FROM login_codes
-         WHERE code_hash = $1 AND used_at IS NULL AND expires_at > NOW()
-         LIMIT 1`,
+      // DB에 코드가 존재하는지 먼저 확인 (used_at·expires_at 무관)
+      const found = await db.query(
+        `SELECT id, user_id, used_at, expires_at FROM login_codes
+         WHERE code_hash = $1 LIMIT 1`,
         [codeHash]
       );
-      if (result && result.rows.length > 0) {
-        const row = result.rows[0];
+
+      if (found && found.rows.length > 0) {
+        // DB에 등록된 코드 → env var fallback 없이 DB 결과만 사용
+        const row = found.rows[0];
+        if (row.used_at !== null || new Date(row.expires_at) <= new Date()) {
+          // 이미 사용됐거나 만료
+          return res.status(401).json({ error: 'invalid_code' });
+        }
+        // 유효한 코드 → 사용자 생성/갱신
         userId = row.user_id;
         if (!userId) {
-          // 처음 로그인 → 새 사용자 생성
           const uRes = await db.query(
             `INSERT INTO users (last_login_at) VALUES (NOW()) RETURNING id`
           );
@@ -250,7 +256,7 @@ app.post('/api/auth/login', async (req, res) => {
         );
         src = 'db';
       } else {
-        // DB에 코드 없음 → 환경변수 fallback
+        // DB에 없는 코드 → 환경변수 fallback
         if (AUTH_CODES.length === 0 || !AUTH_CODES.includes(code)) {
           return res.status(401).json({ error: 'invalid_code' });
         }
@@ -336,6 +342,46 @@ app.post('/api/auth/logout', async (req, res) => {
 
   res.setHeader('Set-Cookie', `sp_sess=; ${COOKIE_BASE}; Max-Age=0`);
   res.json({ ok: true });
+});
+
+/* --- Admin: 로그인 코드 생성 --- */
+app.post('/api/admin/codes', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+
+  // 인증: x-admin-secret 헤더 또는 body.adminSecret
+  const provided = req.headers['x-admin-secret'] || req.body?.adminSecret;
+  if (!ADMIN_SECRET || provided !== ADMIN_SECRET) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+
+  if (!db.pool) {
+    return res.status(503).json({ error: 'database_not_available' });
+  }
+
+  const { code: customCode, days = 30, note = null } = req.body || {};
+
+  // 코드 결정: body.code 지정 시 사용, 아니면 랜덤 생성
+  const code = customCode
+    ? customCode.toUpperCase().trim()
+    : `SP-${crypto.randomBytes(4).toString('hex').toUpperCase().slice(0, 4)}-${crypto.randomBytes(4).toString('hex').toUpperCase().slice(0, 4)}`;
+
+  const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+
+  try {
+    await db.query(
+      `INSERT INTO login_codes (code_hash, note, expires_at)
+       VALUES ($1, $2, NOW() + ($3 || ' days')::INTERVAL)`,
+      [codeHash, note, String(days)]
+    );
+    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    res.json({ ok: true, code, expiresAt });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'code_already_exists', code });
+    }
+    console.error('[admin/codes]', err.message);
+    res.status(500).json({ error: 'internal_error' });
+  }
 });
 
 /* --- Health --- */

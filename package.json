@@ -12,6 +12,7 @@
     "db:migrate": "node backend/migrate.js",
     "db:logs": "docker compose logs -f postgres",
     "db:gen-code": "node backend/gen-code.js",
+    "test:auth": "node scripts/test-auth.mjs",
     "qa": "node scripts/qa.mjs",
     "qa:prod": "node scripts/qa-prod.mjs",
     "build:kr-stocks": "node scripts/build-kr-stocks.mjs",
