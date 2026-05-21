@@ -4,6 +4,50 @@
 
 ---
 
+## 2026-05-22
+
+### 완료 작업
+
+#### 1. 토스트 알림 z-index 수정 (BUG-01)
+
+**증상:** 대시보드 모달이 열린 상태에서 보유 수량 저장 시 토스트 알림이 모달 뒤에 가려짐
+
+**원인:** `.toast-container { z-index: 300 }` < `.modal-overlay { z-index: 1000 }`
+
+**수정 내용:**
+| 파일 | Before | After |
+|------|--------|-------|
+| `frontend/style.css` | `.toast-container { z-index: 300 }` | `.toast-container { z-index: 1100 }` |
+
+---
+
+### 커밋 이력 (오늘)
+
+| 해시 | 메시지 |
+|------|--------|
+| `fd13a40` | fix: 토스트 알림 z-index 상향 (300 → 1100) — 모달 위에 표시 |
+
+---
+
+### 현재 프로덕션 엔드포인트
+
+| 역할 | URL |
+|------|-----|
+| 프론트엔드 | https://stock-tracker-opal-six.vercel.app |
+| 백엔드 API | https://stock-tracker-production-7e54.up.railway.app |
+
+---
+
+### 다음 작업 후보
+
+| ID | 작업 | 우선순위 |
+|----|------|----------|
+| M-3b | GA4 콘솔에서 측정 ID 발급 후 `G-XXXXXXXXXX` 4곳 교체 | 높음 (사용자 직접) |
+| A-0~A-2 | AI 브리핑 MVP (규칙 기반, LLM 없음) — AdSense 콘텐츠 강화 | 높음 |
+| M-5 | Google AdSense 신청 (M-2/M-3 완료 후) | 중간 |
+
+---
+
 ## 2026-05-21
 
 ### 완료 작업

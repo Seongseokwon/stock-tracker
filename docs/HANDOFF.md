@@ -3,7 +3,7 @@
 > **이 파일 하나만 읽어도** 프로젝트의 목적·구조·현황·제약·향후 방향을 파악할 수 있도록 작성했습니다.  
 > 다른 AI·개발자 온보딩용 **마스터 문서**입니다.
 
-**문서 버전:** 2026-05-21 (PostgreSQL DB 연동 · 재사용 가능 로그인 코드 인증 · **Railway 백엔드 배포 완료**)  
+**문서 버전:** 2026-05-22 (토스트 z-index 버그 수정 · M-2 법적 고지 · M-3 GA4 스크립트)  
 **프론트 URL:** https://stock-tracker-opal-six.vercel.app  
 **백엔드 URL:** https://stock-tracker-production-7e54.up.railway.app  
 **로컬 실행:** `npm start` → http://localhost:3000  
@@ -297,6 +297,7 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 | DEPLOY-04 | Railway `/backend: not found` 빌드 실패 | Dockerfile의 `COPY backend/ ./backend/` → `COPY . ./` (build context = `backend/`) |
 | DEPLOY-05 | `backend/package-lock.json`에 `file:..` symlink 참조 → Docker 빌드 오류 | isolated dir에서 `npm install` 재생성 |
 | UI | 모달 헤더에 가림 | `z-index`, `ensureModalOnBody()` |
+| BUG-01 | 토스트 알림이 모달 뒤에 가려짐 | `.toast-container` z-index 300 → 1100 (`frontend/style.css`) |
 | UI | 배당률 % 표시 오류 | `formatFinnhubPercent` |
 | PWA | icon 크기·스크린샷 | 512×512 PNG, wide/narrow screenshots |
 

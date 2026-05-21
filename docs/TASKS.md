@@ -1,11 +1,11 @@
 # StockPulse — 작업 목록
 
-**최종 갱신:** 2026-05-21  
+**최종 갱신:** 2026-05-22  
 **프론트:** https://stock-tracker-opal-six.vercel.app  
 **백엔드:** https://stock-tracker-production-7e54.up.railway.app  
 **마스터 문서:** [HANDOFF.md](./HANDOFF.md)
 
-> **수익화 목표:** AdSense 승인 최단 경로 → M-2(법적 고지) → M-3(Analytics) → A-2(브리핑 콘텐츠) → M-5(AdSense 신청)
+> **수익화 목표:** AdSense 승인 최단 경로 → M-3b(GA4 실 ID) → A-0~A-2(브리핑 콘텐츠) → M-5(AdSense 신청)
 
 ---
 
@@ -21,33 +21,39 @@
 | DS-0~10 | Minimal + Glass Hybrid 리디자인 + PWA 스크린샷 | 2026-05-20~21 |
 | RW-0~9 | Railway 백엔드·DB·WebSocket·CORS·Vercel 연동 | 2026-05-20~21 |
 | L-0~9 | PostgreSQL 인증 스키마, 재사용 로그인 코드, watchlist DB 동기화 | 2026-05-21 |
+| M-2a~c | 면책고지·개인정보처리방침 페이지 + 푸터 링크 | 2026-05-21 |
+| M-3 | GA4 스크립트 삽입 (4개 HTML 파일) | 2026-05-21 |
 | D-1~5 | PWA 아이콘·캐시·OG 이미지 | 2026-05-19 |
 | UI-1 | 카드 종목명 위·코드 아래 | 2026-05-19 |
+| BUG-01 | 토스트 알림 z-index 수정 (모달 위에 표시) | 2026-05-22 |
 | — | README.md 개선 (스크린샷·현재 스택) | 2026-05-21 |
 
 </details>
 
 ---
 
-## 1순위 — 법적 고지 (AdSense 신청 전 필수)
+## 1순위 — GA4 측정 ID 교체 (사용자 직접)
 
-> AdSense 정책상 **개인정보처리방침·이용약관·면책고지**가 없으면 신청 자체가 불가합니다.
-
-| ID | 타스크 | 상태 |
-|----|--------|------|
-| M-2a | 면책고지 페이지 (`/disclaimer.html`) — 투자 정보 아님, 데이터 정확성 무보증 | ✅ 2026-05-21 |
-| M-2b | 개인정보처리방침 페이지 (`/privacy.html`) — 쿠키·세션·수집 항목 명시 | ✅ 2026-05-21 |
-| M-2c | 푸터에 링크 삽입 (면책·개인정보, index.html·login.html) | ✅ 2026-05-21 |
-
----
-
-## 2순위 — Analytics (트래픽 데이터 축적)
-
+> GA4 스크립트는 삽입됐지만 실제 측정 ID가 없어 데이터가 수집되지 않습니다.  
 > AdSense 심사 시 트래픽 증거로 활용. 신청 전 최소 2~4주 데이터가 있으면 유리합니다.
 
 | ID | 타스크 | 상태 |
 |----|--------|------|
-| M-3 | GA4 스크립트 삽입 (`index.html`, `login.html`, 법적 페이지) — **측정 ID G-XXXXXXXXXX 교체 필요** | ✅ 2026-05-21 |
+| M-3b | GA4 콘솔(analytics.google.com)에서 측정 ID 발급 후 `G-XXXXXXXXXX` → 실제 ID 교체 | ⬜ 사용자 직접 |
+
+> 교체 대상 파일 (각 2곳씩, 총 8곳):  
+> `frontend/index.html`, `frontend/login.html`, `frontend/disclaimer.html`, `frontend/privacy.html`
+
+---
+
+## 2순위 — 법적 고지 (완료)
+
+| ID | 타스크 | 상태 |
+|----|--------|------|
+| M-2a | 면책고지 페이지 (`/disclaimer.html`) | ✅ 2026-05-21 |
+| M-2b | 개인정보처리방침 페이지 (`/privacy.html`) | ✅ 2026-05-21 |
+| M-2c | 푸터에 링크 삽입 (면책·개인정보, index.html·login.html) | ✅ 2026-05-21 |
+| M-3 | GA4 스크립트 삽입 (스크립트 구조 완료, 측정 ID 교체 필요 → M-3b) | ✅ 2026-05-21 |
 
 ---
 
