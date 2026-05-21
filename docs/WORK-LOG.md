@@ -114,6 +114,8 @@ GET  https://stock-tracker-opal-six.vercel.app/api/auth/me
 | `a36730b` | docs: Railway 배포 완료 반영 — HANDOFF, TASKS, AUTH 최신화 |
 | `c09cd2b` | feat(RW-5): 프론트엔드 Railway 백엔드 연동 |
 | `872e281` | docs: RW-5 완료 반영 — HANDOFF, TASKS 최신화 |
+| `2ed0f58` | docs: WORK-LOG.md 생성 |
+| `c0d63ca` | feat(M-2/M-3): 법적 고지 페이지 + GA4 스크립트 + 사이트 푸터 |
 
 ---
 
@@ -130,11 +132,10 @@ GET  https://stock-tracker-opal-six.vercel.app/api/auth/me
 
 | ID | 작업 | 우선순위 |
 |----|------|----------|
-| RW-7 | `npm run qa:prod` Railway 백엔드 기준으로 재검사 | 높음 |
-| L-4 | `GET/PUT /api/watchlist` — 관심종목 서버 저장 | 높음 |
-| L-7 | localStorage ↔ 서버 관심종목 병합 | L-4 이후 |
-| A-1 | `GET /api/briefing` AI 종목 브리핑 MVP | 중간 |
-| DS-10 | `npm run fix:pwa` 스크린샷 갱신 후 재배포 | 낮음 |
+| M-3 실 ID | GA4 콘솔에서 측정 ID 발급 후 `G-XXXXXXXXXX` 4곳 교체 | 높음 |
+| A-0~A-2 | AI 브리핑 MVP (규칙 기반, LLM 없음) — AdSense 콘텐츠 강화 | 높음 |
+| M-5 | Google AdSense 신청 (M-2/M-3 완료 후) | 중간 |
+| RW-7 | `npm run qa:prod` Railway 백엔드 기준으로 재검사 | 낮음 |
 
 ---
 
