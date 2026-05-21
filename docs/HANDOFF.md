@@ -475,21 +475,13 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 |------|------|
 | **docs/HANDOFF.md** | **이 문서 (마스터)** |
 | README.md | 빠른 시작 |
-| PROJECT.md | 로드맵 요약 |
 | docs/TASKS.md | 작업 ID 트래킹 |
-| docs/DEPLOY-VERCEL.md | Vercel CLI·환경변수·트러블슈팅 |
-| docs/QA-CHECKLIST.md | 수동 QA 항목 |
-| docs/QA-RESULTS.md | QA 실행 결과 |
-| docs/OG-KAKAO.md | 카카오 링크 미리보기 |
-| docs/PWA-INSTALL.md | PWA 설치·아이콘 이슈 |
-| docs/ARCHIVE.md | 압축·백업·`npm run clean` |
-| **docs/MONETIZATION.md** | **수익화 전략·Tier·작업 ID** |
-| **docs/LEGAL-DISCLAIMER.md** | 면책·제휴·개인정보 템플릿 |
-| **docs/NEWS-FEED.md** | 미국 매크로·경제 뉴스 (Bloomberg 등) 기획 |
-| **docs/AI-BRIEFING.md** | 관심종목 클릭 · 시간대별 AI 브리핑 |
-| **docs/AUTH-MVP.md** | 일회용 로그인 코드 · DB · 관심종목 저장 |
+| docs/DEPLOY.md | Vercel·Railway 배포, PWA 설치, OG·카카오, 백업 |
+| docs/AUTH.md | 인증 현황 (Phase 1 완료) + Phase 2 DB 계획 |
+| docs/QA.md | 자동·수동 QA 체크리스트 + 최근 결과 |
+| docs/ROADMAP.md | AI 브리핑·매크로 뉴스·수익화·한국 시장 |
 | **docs/DESIGN-SYSTEM.md** | Minimal + Glass Hybrid · 토큰·IA·컴포넌트 규칙 |
-| **docs/DEPLOY-RAILWAY.md** | Railway 백엔드 · API·WS · Vercel 하이브리드 |
+| **docs/LEGAL-DISCLAIMER.md** | 면책·제휴·개인정보 템플릿 |
 
 ---
 
