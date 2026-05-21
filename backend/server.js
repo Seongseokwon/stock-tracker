@@ -4,6 +4,7 @@
  */
 const http = require('http');
 const path = require('path');
+const crypto = require('crypto');
 
 if (!process.env.VERCEL) {
   require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -13,6 +14,8 @@ const { WebSocketServer, WebSocket } = require('ws');
 
 const PORT = process.env.PORT || 3000;
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY;
+const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-me';
+const AUTH_CODE = (process.env.AUTH_CODE || '').toUpperCase().trim();
 const FINNHUB_REST = 'https://finnhub.io/api/v1';
 const YAHOO_CHART = 'https://query1.finance.yahoo.com/v8/finance/chart';
 const YAHOO_SUMMARY = 'https://query1.finance.yahoo.com/v10/finance/quoteSummary';
@@ -35,8 +38,9 @@ app.use((req, res, next) => {
   if (origin && CORS_ORIGINS.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   if (req.method === 'OPTIONS') return res.status(204).end();
   next();
 });
@@ -44,6 +48,7 @@ app.use((req, res, next) => {
 if (!isVercel) {
   app.use(express.static(FRONTEND_DIR));
 }
+app.use(express.json());
 
 function isKoreanSymbol(symbol) {
   return symbol.endsWith('.KS') || symbol.endsWith('.KQ');
@@ -155,6 +160,65 @@ function parseYahooOhlc(json) {
   }
   return { closes: ohlc.map((b) => b.c), ohlc };
 }
+
+/* --- Auth utilities --- */
+function createSessionToken() {
+  const payload = Buffer.from(JSON.stringify({
+    uid: crypto.randomUUID(),
+    exp: Date.now() + 7 * 24 * 60 * 60 * 1000,
+  })).toString('base64url');
+  const sig = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+  return `${payload}.${sig}`;
+}
+
+function verifySessionToken(token) {
+  if (!token || typeof token !== 'string') return null;
+  const dot = token.lastIndexOf('.');
+  if (dot < 0) return null;
+  const data = token.slice(0, dot);
+  const sig = token.slice(dot + 1);
+  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(data).digest('base64url');
+  if (sig !== expected) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(data, 'base64url').toString());
+    if (!payload.exp || payload.exp < Date.now()) return null;
+    return payload;
+  } catch { return null; }
+}
+
+function parseCookies(req) {
+  return Object.fromEntries(
+    (req.headers.cookie || '').split(';')
+      .map((c) => c.trim().split('='))
+      .filter(([k]) => k)
+      .map(([k, ...v]) => [k.trim(), v.join('=').trim()])
+  );
+}
+
+/* --- Auth routes --- */
+app.post('/api/auth/login', (req, res) => {
+  const code = (req.body?.code || '').toUpperCase().trim();
+  if (!code || !AUTH_CODE || code !== AUTH_CODE) {
+    return res.status(401).json({ error: 'invalid_code' });
+  }
+  const token = createSessionToken();
+  res.setHeader('Set-Cookie',
+    `sp_sess=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${7 * 24 * 3600}`
+  );
+  res.json({ ok: true });
+});
+
+app.get('/api/auth/me', (req, res) => {
+  const cookies = parseCookies(req);
+  const payload = verifySessionToken(cookies.sp_sess);
+  if (!payload) return res.status(401).json({ loggedIn: false });
+  res.json({ loggedIn: true, uid: payload.uid });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  res.setHeader('Set-Cookie', 'sp_sess=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');
+  res.json({ ok: true });
+});
 
 /* --- Health --- */
 app.get('/api/health', (_req, res) => {

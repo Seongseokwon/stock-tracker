@@ -308,7 +308,25 @@ function ensureModalOnBody() {
   }
 }
 
+async function checkSession() {
+  try {
+    const res = await fetch('/api/auth/me');
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data.loggedIn === true;
+  } catch { return false; }
+}
+
+async function logout() {
+  await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+  window.location.href = '/login.html';
+}
+
 async function init() {
+  const loggedIn = await checkSession();
+  if (!loggedIn) { window.location.href = '/login.html'; return; }
+  document.body.style.visibility = 'visible';
+
   ensureModalOnBody();
   applyTheme(localStorage.getItem('sp_theme') || 'dark');
   registerServiceWorker();
@@ -343,6 +361,7 @@ async function init() {
   if (filterEl) filterEl.value = state.filterMarket;
 
   updateAlertBellUI();
+  document.getElementById('logoutBtn')?.addEventListener('click', logout);
 }
 
 async function checkApiServer() {

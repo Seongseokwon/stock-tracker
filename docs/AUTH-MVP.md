@@ -1,6 +1,6 @@
 # MVP 로그인·DB (일회용 코드)
 
-**최종 갱신:** 2026-05-19  
+**최종 갱신:** 2026-05-21  
 **작업 ID:** L-0 ~ L-9 ([TASKS.md](./TASKS.md))
 
 ---
@@ -152,18 +152,46 @@ watchlist_items (
 
 ## 7. 구현 작업 (L-*)
 
-| ID | 작업 |
-|----|------|
-| L-0 | DB 선택·`DATABASE_URL`·마이그레이션 스크립트 |
-| L-1 | 테이블 생성 (`users`, `login_codes`, `sessions`, `watchlist_items`) |
-| L-2 | `POST /api/auth/login` · 코드 검증·세션 발급 |
-| L-3 | `GET/POST/DELETE /api/watchlist` |
-| L-4 | `POST /api/admin/codes` + CLI `npm run auth:code` |
-| L-5 | 프론트 로그인 모달·세션 유지·로그아웃 |
-| L-6 | 관심종목 추가/삭제 시 서버 저장 (`app.js`) |
-| L-7 | 로그인 시 서버 → localStorage 병합 정책 문서화 |
-| L-8 | QA·`.env.example` 갱신 |
-| L-9 | (선택) 포트폴리오·알림 테이블 확장 |
+> **Phase 1 (완료 2026-05-21): DB 없는 경량 인증** — 환경변수 코드 + HMAC 쿠키  
+> **Phase 2 (예정): DB 연동** — 다중 코드 관리 + 관심종목 서버 저장
+
+| ID | 작업 | 상태 |
+|----|------|------|
+| L-0 | DB 선택·`DATABASE_URL`·마이그레이션 스크립트 | ⬜ |
+| L-1 | 테이블 생성 (`users`, `login_codes`, `sessions`, `watchlist_items`) | ⬜ |
+| L-2 | `POST /api/auth/login` · 코드 검증·세션 발급 | ✅ 2026-05-21 (환경변수 `AUTH_CODE` 방식) |
+| L-3 | `GET /api/auth/me` · `POST /api/auth/logout` | ✅ 2026-05-21 (HMAC 서명 쿠키) |
+| L-4 | `GET/PUT/POST/DELETE /api/watchlist` | ⬜ (DB 필요) |
+| L-5 | `POST /api/admin/codes` + CLI `npm run auth:code` | ⬜ (DB 필요) |
+| L-6 | 프론트 SPA 인증 가드·로그아웃 버튼 (`app.js`, `index.html`) | ✅ 2026-05-21 |
+| L-7 | 관심종목 추가/삭제 시 서버 저장 (`app.js`) | ⬜ (L-4 완료 후) |
+| L-8 | 로그인 시 서버 → localStorage 병합 정책 문서화 | ⬜ |
+| L-9 | QA·`.env.example` 갱신 | ✅ 2026-05-21 |
+| L-10 | (선택) 포트폴리오·알림 테이블 확장 | ⬜ |
+
+### Phase 1 구현 상세 (DB 없는 경량 버전)
+
+```
+환경변수: AUTH_CODE, SESSION_SECRET
+
+POST /api/auth/login
+  { code } → AUTH_CODE 환경변수와 대소문자 무시 비교
+  일치 → HMAC-SHA256 서명 토큰 생성 (uid, exp: 7일)
+       → Set-Cookie: sp_sess=<token>; HttpOnly; SameSite=Strict
+
+GET /api/auth/me
+  Cookie 헤더의 sp_sess 토큰 검증
+  유효 → { loggedIn: true, uid }
+  만료/없음 → 401 { loggedIn: false }
+
+POST /api/auth/logout
+  Set-Cookie: sp_sess=; Max-Age=0  (쿠키 만료)
+```
+
+**특성:**
+- 서버 재시작해도 세션 유지 (stateless JWT-like, SESSION_SECRET 동일 유지 시)
+- Vercel serverless 환경에서도 동작 (in-memory 상태 없음)
+- 코드 1개만 지원 (다중 코드는 L-0~L-1 DB 구현 후)
 
 ---
 
@@ -181,11 +209,18 @@ watchlist_items (
 
 ## 9. 완료 기준
 
-- [ ] 운영자가 코드 생성 → 사용자 코드 입력 → 로그인 성공  
-- [ ] 동일 코드 재사용 시 거부  
-- [ ] 만료 코드 거부  
-- [ ] 로그인 후 종목 추가 → 재로그인 시 목록 유지  
-- [ ] 미로그인 시 기존 앱 동작 유지  
+**Phase 1 (완료):**
+- [x] `AUTH_CODE` 설정 → 사용자 코드 입력 → 로그인 성공
+- [x] 잘못된 코드 → 401 거부
+- [x] 로그인 후 대시보드 진입, 새로고침 시 세션 유지 (7일 쿠키)
+- [x] 로그아웃 버튼 → 쿠키 만료 → 로그인 페이지 리다이렉트
+- [x] 미로그인 시 `/login.html` 자동 리다이렉트
+
+**Phase 2 (예정, DB 필요):**
+- [ ] 운영자가 코드 생성 → DB 저장 (해시)
+- [ ] 동일 코드 재사용 시 거부
+- [ ] 만료 코드 거부
+- [ ] 로그인 후 종목 추가 → 재로그인 시 목록 유지 (서버 저장)
 
 ---
 

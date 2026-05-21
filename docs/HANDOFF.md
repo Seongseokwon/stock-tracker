@@ -3,7 +3,7 @@
 > **이 파일 하나만 읽어도** 프로젝트의 목적·구조·현황·제약·향후 방향을 파악할 수 있도록 작성했습니다.  
 > 다른 AI·개발자 온보딩용 **마스터 문서**입니다.
 
-**문서 버전:** 2026-05-20 (DS-* 완료 · Railway CORS+Docker 준비 · Git 초기화 · 로그인 UI)  
+**문서 버전:** 2026-05-21 (SPA 로그인 흐름 구현 · 경량 인증 · 로그아웃 버튼)  
 **프로덕션 URL:** https://stock-tracker-opal-six.vercel.app  
 **로컬 실행:** `npm start` → http://localhost:3000  
 **Git:** ✅ 초기 커밋 완료 (`41363fc`, 2026-05-20) — branch: `main`
@@ -12,7 +12,7 @@
 
 ## 1. 한 줄 요약
 
-**StockPulse**는 미국 주식(Finnhub)과 한국 주식(Yahoo Finance)을 한 화면에서 추적하는 **Vanilla JS + Node/Express** 웹 앱이다. API 키는 서버에만 두고, 관심목록·포트폴리오·알림·차트·PWA·URL 공유를 제공한다. **현재** 관심목록은 **localStorage**; **예정(L-*)** 일회용 로그인 코드 + DB에 관심종목 저장.
+**StockPulse**는 미국 주식(Finnhub)과 한국 주식(Yahoo Finance)을 한 화면에서 추적하는 **Vanilla JS + Node/Express** 웹 앱이다. API 키는 서버에만 두고, 관심목록·포트폴리오·알림·차트·PWA·URL 공유를 제공한다. **현재** 관심목록은 **localStorage**; 로그인은 **환경변수 1회용 코드 + HMAC 쿠키 세션** (DB 없음); **예정(L-*)** DB 연동으로 코드 다중 관리 + 관심종목 서버 저장.
 
 ---
 
@@ -138,9 +138,10 @@ stock-tracker/
 | GET | `/api/news?symbol=` | Finnhub 7일 (종목별) | `[]` | |
 | GET | `/api/macro-news` | *(미구현 N-1)* | — | 매크로·경제 허브 |
 | GET | `/api/briefing?symbol=&slot=` | *(미구현 A-1)* | US/KR | 시간대별 AI·규칙 요약 |
-| POST | `/api/auth/login` | *(미구현 L-2)* | — | 일회용 코드 |
-| GET | `/api/auth/me` | *(미구현 L-3)* | — | 세션 |
-| GET/PUT | `/api/watchlist` | *(미구현 L-4)* | — | 로그인 사용자 관심종목 |
+| POST | `/api/auth/login` | ✅ | — | `AUTH_CODE` 환경변수 검증 → HttpOnly 쿠키 발급 |
+| GET | `/api/auth/me` | ✅ | — | 쿠키 검증 → `{ loggedIn, uid }` |
+| POST | `/api/auth/logout` | ✅ | — | 쿠키 만료 처리 |
+| GET/PUT | `/api/watchlist` | *(미구현 L-4)* | — | 로그인 사용자 관심종목 (DB 필요) |
 | GET | `/api/metrics?symbol=` | Finnhub | `null` | |
 | WS | `/ws` | Finnhub 프록시 | 미지원 | 로컬만 |
 
@@ -208,7 +209,7 @@ stock-tracker/
 
 ---
 
-## 8. 운영·QA 현황 (2026-05-20)
+## 8. 운영·QA 현황 (2026-05-21)
 
 | 항목 | 상태 |
 |------|------|
@@ -219,10 +220,13 @@ stock-tracker/
 | O-5 Git 첫 커밋 | ✅ 2026-05-20 (`41363fc`) |
 | D-2 / D-5 PWA 512·192 PNG + screenshots | ✅ (`npm run fix:pwa`) |
 | D-2b PWA 설치·바탕화면 아이콘 | ⬜ 사용자 최종 확인 |
-| O-6 / O-7 문서·HANDOFF | ✅ 2026-05-20 |
+| O-6 / O-7 문서·HANDOFF | ✅ 2026-05-21 |
 | UI-1 카드 종목명 위·코드 아래 | ✅ 2026-05-19 |
 | DS-0~9 Minimal+Glass 리디자인 | ✅ 2026-05-20 |
 | DS-10 PWA 스크린샷 갱신 | ⬜ `npm run fix:pwa` 후 재배포 필요 |
+| L-2 `POST /api/auth/login` (환경변수 코드) | ✅ 2026-05-21 |
+| L-3 `GET /api/auth/me` + `POST /api/auth/logout` | ✅ 2026-05-21 |
+| L-6 SPA 인증 가드 + 로그아웃 버튼 | ✅ 2026-05-21 |
 
 ```bash
 npm run install:all
@@ -327,11 +331,18 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 
 | ID | 상태 | 내용 |
 |----|------|------|
-| L-6 | ✅ | `login.html` — 1회용 코드 입력 폼, 이메일/Slack 코드 요청 FAB |
-| L-0~5, L-7~9 | ⬜ | DB·세션·API 미구현 — Railway 배포 후 진행 |
+| L-2 | ✅ 2026-05-21 | `POST /api/auth/login` — `AUTH_CODE` 환경변수 검증, HttpOnly 쿠키 발급 |
+| L-3 | ✅ 2026-05-21 | `GET /api/auth/me` + `POST /api/auth/logout` — HMAC 서명 쿠키 검증 |
+| L-6 | ✅ 2026-05-21 | `login.html` UI + SPA 인증 가드 (`app.js init()`) + 헤더 로그아웃 버튼 |
+| L-0~1, L-4~5 | ⬜ | DB·다중 코드 관리·관심종목 서버 저장 — Railway 배포 후 진행 |
+| L-7~9 | ⬜ | localStorage↔서버 병합·포트폴리오·알림 DB 확장 |
 
-**login.html 위치:** `frontend/login.html` → `/login.html` (로컬·Railway 모두 서빙됨)  
-**연동 대기 중:** `POST /api/auth/login` (L-2) 구현 후 실제 로그인 동작  
+**현재 인증 방식 (DB 없음):**
+- `AUTH_CODE` 환경변수에 코드 1개 저장
+- 일치 시 HMAC-SHA256 서명 쿠키(`sp_sess`) 발급, 7일 유효
+- 서버 재시작 시 기존 세션 유지 (`SESSION_SECRET` 동일 유지 시)
+- 로컬: `backend/.env`, Vercel: 대시보드 환경변수 설정 필요
+
 **Slack 링크 수정 필요:** `#slackRequestBtn` href를 실제 워크스페이스 채널로 교체
 
 ### 11.5 5순위 — AI 종목 브리핑 (관심종목 클릭)
@@ -437,6 +448,8 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 | `FINNHUB_API_KEY` | `backend/.env` / Vercel Env | US 기능 필수 |
 | `PORT` | `backend/.env` | 선택 (기본 3000) |
 | `VERCEL` | Vercel 자동 | 서버가 정적 서빙·WS 분기 |
+| `AUTH_CODE` | `backend/.env` / Vercel Env | 로그인 인증 코드 (대소문자 무시) |
+| `SESSION_SECRET` | `backend/.env` / Vercel Env | 세션 쿠키 HMAC 서명 비밀키 (기본값: `dev-secret-change-me`) |
 
 ---
 
@@ -491,6 +504,7 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 | localStorage | MVP 속도; **L-* 로 관심목록만 DB 이전 예정** |
 | Git 보류 | 사용자가 마지막에 진행하기로 |
 | 수익화 문서 분리 | HANDOFF는 요약, MONETIZATION·LEGAL에 상세 |
+| 인증: DB 없이 환경변수 코드 + HMAC 쿠키 | DB 연동 전 SPA 로그인 흐름 우선 구현; 나중에 L-0~L-1로 교체 가능 |
 
 ---
 

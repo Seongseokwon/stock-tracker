@@ -1,6 +1,6 @@
 # StockPulse — 작업 목록
 
-**최종 갱신:** 2026-05-20 (DS-* 완료 · Git 초기화 · CORS · Docker · 로그인 UI)  
+**최종 갱신:** 2026-05-21 (SPA 로그인 흐름 · 경량 인증 API · 로그아웃 버튼)  
 **프로덕션:** https://stock-tracker-opal-six.vercel.app  
 **마스터 문서:** [HANDOFF.md](./HANDOFF.md)
 
@@ -22,6 +22,9 @@
 | — | `railway.json` 생성 후 제거 (CLI 네트워크 이슈로 Docker 방식 전환) | 2026-05-20 |
 | — | `Dockerfile` + `.dockerignore` 생성, 빌드·헬스체크 로컬 검증 완료 | 2026-05-20 |
 | L-6 | `login.html` UI — 1회용 코드 폼 + 이메일/Slack FAB | 2026-05-20 |
+| L-2 | `POST /api/auth/login` — `AUTH_CODE` 환경변수 검증·HttpOnly 쿠키 발급 | 2026-05-21 |
+| L-3 | `GET /api/auth/me` + `POST /api/auth/logout` — HMAC 쿠키 검증 | 2026-05-21 |
+| L-6+ | SPA 인증 가드 (`app.js init()`) + 헤더 로그아웃 버튼 (`index.html`) | 2026-05-21 |
 | — | 수익화·법적 고지 문서 (`MONETIZATION`, `LEGAL-DISCLAIMER`) | 2026-05-19 |
 | — | Vercel API 라우팅 (`api/[[...slug]].js`) | 2026-05-19 |
 | — | OG 메타·`og-image.png` | 2026-05-19 |
@@ -102,14 +105,15 @@
 |----|--------|------|
 | L-0 | DB 선택·연결 (`DATABASE_URL`, Neon/Turso 등) | ⬜ |
 | L-1 | 스키마: `users`, `login_codes`, `sessions`, `watchlist_items` | ⬜ |
-| L-2 | `POST /api/auth/login` · 코드 해시·1회 사용·만료 검증 | ⬜ |
-| L-3 | 세션 (`/api/auth/me`, logout, HttpOnly 쿠키) | ⬜ |
-| L-4 | `GET/PUT/POST/DELETE /api/watchlist` | ⬜ |
-| L-5 | 운영자 코드 생성 (`ADMIN_SECRET`, `npm run auth:code`) | ⬜ |
-| L-6 | 프론트 로그인 페이지 (`login.html`) | ✅ 2026-05-20 — 로그아웃 UI는 L-3 완료 후 |
-| L-7 | 관심종목 추가/삭제 → 서버 동기화 (`app.js`) | ⬜ |
+| L-2 | `POST /api/auth/login` — `AUTH_CODE` 환경변수 방식 | ✅ 2026-05-21 |
+| L-3 | `GET /api/auth/me` + `POST /api/auth/logout` | ✅ 2026-05-21 |
+| L-4 | `GET/PUT/POST/DELETE /api/watchlist` | ⬜ DB 필요 |
+| L-5 | 운영자 코드 생성 (`ADMIN_SECRET`, `npm run auth:code`) | ⬜ DB 필요 |
+| L-6 | SPA 인증 가드 (`app.js`) + 로그아웃 버튼 (`index.html`) | ✅ 2026-05-21 |
+| L-7 | 관심종목 추가/삭제 → 서버 동기화 (`app.js`) | ⬜ L-4 완료 후 |
 | L-8 | 로그인 시 서버↔localStorage 병합 정책·QA | ⬜ |
-| L-9 | (선택) 포트폴리오·알림 DB 확장 | ⬜ |
+| L-9 | `.env.example` 갱신 (`AUTH_CODE`, `SESSION_SECRET`) | ✅ 2026-05-21 |
+| L-10 | (선택) 포트폴리오·알림 DB 확장 | ⬜ |
 
 ---
 
