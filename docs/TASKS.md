@@ -1,6 +1,6 @@
 # StockPulse — 작업 목록
 
-**최종 갱신:** 2026-05-21 (PostgreSQL DB 연동 · 1회용 코드 인증 · Railway 배포 · **프론트↔Railway 완전 연동**)  
+**최종 갱신:** 2026-05-21 (PostgreSQL DB 연동 · 재사용 가능 로그인 코드 인증 · Railway 배포 · **프론트↔Railway 완전 연동**)  
 **프론트:** https://stock-tracker-opal-six.vercel.app  
 **백엔드:** https://stock-tracker-production-7e54.up.railway.app  
 **마스터 문서:** [HANDOFF.md](./HANDOFF.md)
@@ -34,7 +34,7 @@
 | RW-5 | Vercel rewrite `/api/*`→Railway + WS_PATH Railway WSS + `api/[[...slug]].js` 삭제 | 2026-05-21 |
 | L-0 | Docker PostgreSQL 5433 + `DATABASE_URL` 설정 (로컬 5432 충돌 회피) | 2026-05-21 |
 | L-1 | DB 마이그레이션: `users` · `login_codes` · `sessions` (001_auth.sql) | 2026-05-21 |
-| L-2 | `POST /api/auth/login` — DB 1회용 코드 조회 + `AUTH_CODE` env fallback | 2026-05-21 |
+| L-2 | `POST /api/auth/login` — DB 로그인 코드 조회(재사용 가능, 만료만 검사) + env fallback | 2026-05-21 |
 | L-3 | `GET /api/auth/me` + `POST /api/auth/logout` — DB 세션 검증·삭제 | 2026-05-21 |
 | L-5 | 1회용 코드 생성 CLI (`backend/gen-code.js`, `npm run db:gen-code`) | 2026-05-21 |
 | L-6+ | SPA 인증 가드 (`app.js init()`) + 헤더 로그아웃 버튼 (`index.html`) | 2026-05-21 |
@@ -110,7 +110,7 @@
 
 ---
 
-## 4순위 — MVP 로그인·DB (일회용 코드)
+## 4순위 — MVP 로그인·DB (재사용 가능 로그인 코드)
 
 > 기획: [AUTH-MVP.md](./AUTH-MVP.md) — 코드 입력만 로그인, **관심종목 서버 저장**
 

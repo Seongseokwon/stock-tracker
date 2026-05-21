@@ -3,7 +3,7 @@
 > **이 파일 하나만 읽어도** 프로젝트의 목적·구조·현황·제약·향후 방향을 파악할 수 있도록 작성했습니다.  
 > 다른 AI·개발자 온보딩용 **마스터 문서**입니다.
 
-**문서 버전:** 2026-05-21 (PostgreSQL DB 연동 · 1회용 코드 인증 · **Railway 백엔드 배포 완료**)  
+**문서 버전:** 2026-05-21 (PostgreSQL DB 연동 · 재사용 가능 로그인 코드 인증 · **Railway 백엔드 배포 완료**)  
 **프론트 URL:** https://stock-tracker-opal-six.vercel.app  
 **백엔드 URL:** https://stock-tracker-production-7e54.up.railway.app  
 **로컬 실행:** `npm start` → http://localhost:3000  
@@ -13,7 +13,7 @@
 
 ## 1. 한 줄 요약
 
-**StockPulse**는 미국 주식(Finnhub)과 한국 주식(Yahoo Finance)을 한 화면에서 추적하는 **Vanilla JS + Node/Express** 웹 앱이다. API 키는 서버에만 두고, 관심목록·포트폴리오·알림·차트·PWA·URL 공유를 제공한다. **현재** 관심목록은 **localStorage**; 로그인은 **Docker PostgreSQL 1회용 코드 + HMAC 쿠키 세션**; DB 없으면 환경변수 코드로 fallback; **예정(L-4~)** 관심종목 서버 저장.
+**StockPulse**는 미국 주식(Finnhub)과 한국 주식(Yahoo Finance)을 한 화면에서 추적하는 **Vanilla JS + Node/Express** 웹 앱이다. API 키는 서버에만 두고, 관심목록·포트폴리오·알림·차트·PWA·URL 공유를 제공한다. **현재** 관심목록은 **localStorage**; 로그인은 **Docker PostgreSQL 로그인 코드(재사용 가능) + HMAC 쿠키 세션**; DB 없으면 환경변수 코드로 fallback; **예정(L-4~)** 관심종목 서버 저장.
 
 ---
 
@@ -38,7 +38,7 @@
 stock-tracker/
 ├── frontend/                 # 정적 UI (Vercel outputDirectory)
 │   ├── index.html
-│   ├── login.html            # 1회용 코드 로그인 페이지 (L-6 UI 완료)
+│   ├── login.html            # 로그인 코드 입력 페이지 (L-6 UI 완료)
 │   ├── style.css
 │   ├── app.js                # 전체 클라이언트 로직
 │   ├── manifest.json         # PWA (192/512 PNG, screenshots)
@@ -54,7 +54,7 @@ stock-tracker/
 │   ├── server.js             # Express 앱 export + 로컬 HTTP/WS + CORS 미들웨어
 │   ├── db.js                 # pg Pool (DATABASE_URL 없으면 null)
 │   ├── migrate.js            # 마이그레이션 실행 (npm run db:migrate)
-│   ├── gen-code.js           # 1회용 로그인 코드 생성 CLI
+│   ├── gen-code.js           # 로그인 코드 생성 CLI (재사용 가능, 기본 365일)
 │   ├── migrations/
 │   │   └── 001_auth.sql      # users · login_codes · sessions 테이블
 │   ├── kr-search.js          # 한글 로컬 검색 (priority, aliases)
@@ -149,7 +149,7 @@ stock-tracker/
 | GET | `/api/news?symbol=` | Finnhub 7일 (종목별) | `[]` | |
 | GET | `/api/macro-news` | *(미구현 N-1)* | — | 매크로·경제 허브 |
 | GET | `/api/briefing?symbol=&slot=` | *(미구현 A-1)* | US/KR | 시간대별 AI·규칙 요약 |
-| POST | `/api/auth/login` | ✅ | — | DB 1회용 코드 조회 → 쿠키 발급 (env fallback) |
+| POST | `/api/auth/login` | ✅ | — | DB 로그인 코드 조회(재사용 가능) → 쿠키 발급 (env fallback) |
 | GET | `/api/auth/me` | ✅ | — | 쿠키·DB 세션 검증 → `{ loggedIn, uid }` |
 | POST | `/api/auth/logout` | ✅ | — | DB 세션 삭제 + 쿠키 만료 |
 | POST | `/api/admin/codes` | ✅ | — | `x-admin-secret` 인증 → 코드 생성 → `{ code, expiresAt }` 반환 |
@@ -252,7 +252,7 @@ npm run install:all
 cp backend/.env.example backend/.env   # FINNHUB_API_KEY=, DATABASE_URL=
 npm run db:up                        # Docker PostgreSQL 시작 (포트 5433)
 npm run db:migrate                   # 테이블 생성 (최초 1회)
-npm run db:gen-code                  # 1회용 로그인 코드 생성 (랜덤)
+npm run db:gen-code                  # 로그인 코드 생성 (랜덤, 재사용 가능)
 npm run db:gen-code -- --code SP-USER-0001  # 커스텀 코드 지정
 npm run test:auth                    # 인증 통합 테스트
 npm start                            # 로컬
@@ -371,9 +371,11 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 | L-7~9 | ⬜ | localStorage↔서버 병합·포트폴리오·알림 DB 확장 |
 
 **현재 인증 방식:**
-- `npm run db:gen-code` 로 1회용 코드 생성 → DB `login_codes` 저장
-- 로그인 시 DB 코드 조회 → 사용 후 `used_at` 기록 (재사용 불가)
-- 신규 사용자 자동 생성(`users`), 세션 DB 저장(`sessions`)
+- `npm run db:gen-code` 로 로그인 코드 생성 → DB `login_codes` 저장 (기본 365일 유효)
+- 로그인 시 DB 코드 조회 → **만료 여부만 검사 (재사용 가능)**
+- 첫 사용 시 신규 사용자 자동 생성(`users`) + 코드에 연결(`used_at` = 활성화 시점)
+- 재사용 시 기존 사용자 `last_login_at` 갱신 (비밀번호처럼 반복 로그인 가능)
+- 세션 DB 저장(`sessions`), 세션 유효기간 7일
 - DB 없거나 오류 시 `AUTH_CODE` 환경변수로 fallback (하위호환)
 - Vercel은 DATABASE_URL 없으므로 env 모드 동작
 

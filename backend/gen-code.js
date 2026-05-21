@@ -2,7 +2,7 @@
  * 1회용 로그인 코드 생성기
  *
  * 사용법:
- *   node backend/gen-code.js                          # 랜덤 코드, 30일 유효
+ *   node backend/gen-code.js                          # 랜덤 코드, 365일 유효
  *   node backend/gen-code.js --code SP-USER-0001      # 코드 직접 지정
  *   node backend/gen-code.js --days 7                 # 7일 유효
  *   node backend/gen-code.js --note "데모용"          # 메모 추가
@@ -19,7 +19,7 @@ const { Pool } = require('pg');
 
 async function main() {
   const args = process.argv.slice(2);
-  let days = 30;
+  let days = 365;
   let note = null;
   let customCode = null;
 
@@ -58,7 +58,6 @@ async function main() {
     console.log(`  코드:     ${code}${customCode ? '' : ' (랜덤 생성)'}`);
     console.log(`  유효기간: ${days}일 (${expStr} 까지)`);
     if (note) console.log(`  메모:     ${note}`);
-    console.log('\n⚠  이 코드는 1회만 사용 가능합니다.\n');
   } catch (err) {
     if (err.code === '23505') {
       console.error(`❌ 이미 등록된 코드입니다: ${code}`);

@@ -236,24 +236,26 @@ app.post('/api/auth/login', async (req, res) => {
       if (found && found.rows.length > 0) {
         // DB에 등록된 코드 → env var fallback 없이 DB 결과만 사용
         const row = found.rows[0];
-        if (row.used_at !== null || new Date(row.expires_at) <= new Date()) {
-          // 이미 사용됐거나 만료
+        if (new Date(row.expires_at) <= new Date()) {
+          // 만료된 코드
           return res.status(401).json({ error: 'invalid_code' });
         }
-        // 유효한 코드 → 사용자 생성/갱신
+        // 유효한 코드 → 사용자 생성 또는 재사용
         userId = row.user_id;
         if (!userId) {
+          // 첫 사용: 사용자 생성 후 코드에 연결
           const uRes = await db.query(
             `INSERT INTO users (last_login_at) VALUES (NOW()) RETURNING id`
           );
           userId = uRes.rows[0].id;
+          await db.query(
+            'UPDATE login_codes SET used_at = NOW(), user_id = $1 WHERE id = $2',
+            [userId, row.id]
+          );
         } else {
+          // 재사용: 마지막 로그인 시간만 갱신
           await db.query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [userId]);
         }
-        await db.query(
-          'UPDATE login_codes SET used_at = NOW(), user_id = $1 WHERE id = $2',
-          [userId, row.id]
-        );
         src = 'db';
       } else {
         // DB에 없는 코드 → 환경변수 fallback
