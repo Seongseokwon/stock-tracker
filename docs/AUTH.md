@@ -1,6 +1,6 @@
 # 인증 시스템
 
-**최종 갱신:** 2026-05-21  
+**최종 갱신:** 2026-05-21 (관리자 API · 커스텀 코드 CLI · 통합 테스트)  
 **작업 ID:** L-0 ~ L-10 ([TASKS.md](./TASKS.md))
 
 ---
@@ -17,10 +17,16 @@ DB 1회용 코드가 우선, 없으면 `AUTH_CODE` 환경변수로 fallback.
   ↓ app.js init() → GET /api/auth/me
   ↓ 401 → /login.html 리다이렉트
   ↓ 코드 입력 → POST /api/auth/login
-        ├─ DB login_codes 조회 (code_hash, used_at IS NULL, expires_at > NOW)
-        │   ├─ 일치 → user 생성/갱신, used_at 기록, sessions INSERT
-        │   └─ 없음 → AUTH_CODE 환경변수 fallback
+        ├─ DB login_codes WHERE code_hash = $1
+        │   ├─ 존재 + used_at IS NULL + expires_at 유효
+        │   │   → user 생성/갱신, used_at 기록, sessions INSERT (src='db')
+        │   ├─ 존재 + used_at 있거나 만료
+        │   │   → 401 (env fallback 없음 — 재사용·만료 차단)
+        │   └─ 미존재 → AUTH_CODE 환경변수 fallback (src='env')
         └─ Set-Cookie: sp_sess (7일) → / (대시보드)
+
+관리자 → POST /api/admin/codes { code, days, note }
+  ← { ok, code, expiresAt }   # 코드를 사용자에게 전달
 ```
 
 ### 세션 토큰 구조
@@ -46,8 +52,9 @@ DB 1회용 코드가 우선, 없으면 `AUTH_CODE` 환경변수로 fallback.
 | `backend/db.js` | pg Pool 초기화 (DATABASE_URL 없으면 null — env 모드 유지) |
 | `backend/migrate.js` | 마이그레이션 실행 (`npm run db:migrate`) |
 | `backend/migrations/001_auth.sql` | users · login_codes · sessions 테이블 + 인덱스 |
-| `backend/gen-code.js` | 1회용 코드 생성 CLI (`npm run db:gen-code`) |
-| `backend/server.js` | `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout` |
+| `backend/gen-code.js` | 1회용 코드 생성 CLI — 랜덤 또는 `--code` 직접 지정 |
+| `backend/server.js` | auth 라우트 3개 + `POST /api/admin/codes` (관리자 코드 생성 API) |
+| `scripts/test-auth.mjs` | 인증 통합 테스트 (`npm run test:auth`) |
 | `frontend/login.html` | 코드 입력 폼 |
 | `frontend/app.js` | `checkSession()`, `logout()`, `init()` 인증 가드, bfcache 핸들러 |
 | `frontend/index.html` | `<body style="visibility:hidden">` (FOUC 방지), 로그아웃 버튼 |
@@ -85,16 +92,44 @@ sessions (
 | `AUTH_CODE` | fallback 코드 (대소문자 무시, 쉼표 구분 다중 지원). DB 코드 없을 때만 사용 |
 | `SESSION_SECRET` | 쿠키 HMAC 서명 비밀키 (프로덕션에서 반드시 변경) |
 | `DATABASE_URL` | PostgreSQL 연결 URL (없으면 env 모드로 동작) |
+| `ADMIN_SECRET` | 관리자 API 인증 키 — `POST /api/admin/codes` 헤더 `x-admin-secret` 값 |
 
 ---
 
 ## API
+
+### 사용자 인증
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
 | POST | `/api/auth/login` | `{ code }` → DB 조회 → 쿠키 발급 |
 | GET | `/api/auth/me` | 쿠키 검증 + DB 세션 확인(src=db) → `{ loggedIn, uid }` |
 | POST | `/api/auth/logout` | DB 세션 삭제 + 쿠키 만료 |
+
+### 관리자 — 코드 생성
+
+| 메서드 | 경로 | 인증 | 설명 |
+|--------|------|------|------|
+| POST | `/api/admin/codes` | `x-admin-secret` 헤더 | 코드 생성 → `{ ok, code, expiresAt }` 반환 |
+
+**요청 바디:**
+```json
+{
+  "code":  "SP-USER-0001",   // 생략 시 SP-XXXX-XXXX 랜덤 생성
+  "days":  30,               // 유효기간(일), 기본 30
+  "note":  "VIP용"           // 운영 메모 (선택)
+}
+```
+
+**응답 예:**
+```json
+{ "ok": true, "code": "SP-USER-0001", "expiresAt": "2026-06-20T00:00:00.000Z" }
+```
+
+**에러 코드:**
+- `401 unauthorized` — ADMIN_SECRET 불일치
+- `409 code_already_exists` — 동일 코드 중복 등록
+- `503 database_not_available` — DB 미연결 상태
 
 ---
 
@@ -105,10 +140,40 @@ npm run db:up        # Docker PostgreSQL 컨테이너 시작 (5433)
 npm run db:down      # 컨테이너 중지
 npm run db:migrate   # 마이그레이션 실행 (001_auth.sql)
 npm run db:logs      # DB 로그 스트리밍
-npm run db:gen-code  # 1회용 로그인 코드 생성
+npm run db:gen-code  # 1회용 코드 생성 (랜덤)
+npm run test:auth    # 인증 통합 테스트 (10개 시나리오)
+```
 
-# 옵션 예시:
-node backend/gen-code.js --days 7 --note "데모용"
+### gen-code 옵션
+
+```bash
+# 랜덤 코드 (SP-XXXX-XXXX), 30일 유효
+npm run db:gen-code
+
+# 커스텀 코드 직접 지정
+npm run db:gen-code -- --code SP-USER-0001
+
+# 유효기간 + 메모 지정
+npm run db:gen-code -- --code SP-USER-0002 --days 7 --note "VIP 초대"
+
+# node 직접 실행
+node backend/gen-code.js --code SP-USER-0001 --days 90 --note "장기 사용자"
+```
+
+### 관리자 API 호출 예 (curl)
+
+```bash
+# SP-USER-0001 등록 (커스텀 코드)
+curl -X POST http://localhost:3000/api/admin/codes \
+  -H "Content-Type: application/json" \
+  -H "x-admin-secret: local-admin-secret" \
+  -d '{"code":"SP-USER-0001","days":30,"note":"VIP용"}'
+
+# 랜덤 코드 생성
+curl -X POST http://localhost:3000/api/admin/codes \
+  -H "Content-Type: application/json" \
+  -H "x-admin-secret: local-admin-secret" \
+  -d '{"days":7}'
 ```
 
 ---

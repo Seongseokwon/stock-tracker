@@ -147,6 +147,7 @@ stock-tracker/
 | POST | `/api/auth/login` | ✅ | — | DB 1회용 코드 조회 → 쿠키 발급 (env fallback) |
 | GET | `/api/auth/me` | ✅ | — | 쿠키·DB 세션 검증 → `{ loggedIn, uid }` |
 | POST | `/api/auth/logout` | ✅ | — | DB 세션 삭제 + 쿠키 만료 |
+| POST | `/api/admin/codes` | ✅ | — | `x-admin-secret` 인증 → 코드 생성 → `{ code, expiresAt }` 반환 |
 | GET/PUT | `/api/watchlist` | *(미구현 L-4)* | — | 로그인 사용자 관심종목 (DB 필요) |
 | GET | `/api/metrics?symbol=` | Finnhub | `null` | |
 | WS | `/ws` | Finnhub 프록시 | 미지원 | 로컬만 |
@@ -242,7 +243,9 @@ npm run install:all
 cp backend/.env.example backend/.env   # FINNHUB_API_KEY=, DATABASE_URL=
 npm run db:up                        # Docker PostgreSQL 시작 (포트 5433)
 npm run db:migrate                   # 테이블 생성 (최초 1회)
-npm run db:gen-code                  # 1회용 로그인 코드 생성
+npm run db:gen-code                  # 1회용 로그인 코드 생성 (랜덤)
+npm run db:gen-code -- --code SP-USER-0001  # 커스텀 코드 지정
+npm run test:auth                    # 인증 통합 테스트
 npm start                            # 로컬
 npm run qa                           # localhost:3000
 npm run qa:prod                      # 프로덕션 URL
@@ -467,6 +470,7 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 | `AUTH_CODE` | `backend/.env` / Vercel Env | fallback 인증 코드 (쉼표 구분 다중 지원, 대소문자 무시) |
 | `SESSION_SECRET` | `backend/.env` / Vercel Env | 세션 쿠키 HMAC 서명 비밀키 (기본값: `dev-secret-change-me`) |
 | `DATABASE_URL` | `backend/.env` | PostgreSQL 연결 URL (없으면 env 모드). 예: `postgresql://stockpulse:localdev@127.0.0.1:5433/stockpulse` |
+| `ADMIN_SECRET` | `backend/.env` | 관리자 API 키 — `POST /api/admin/codes` 헤더 `x-admin-secret` 값 |
 
 ---
 
