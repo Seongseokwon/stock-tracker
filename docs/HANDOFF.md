@@ -131,7 +131,7 @@ stock-tracker/
 - Railway 서비스 루트: `backend/` (Docker build context = `backend/`)
 - 배포마다 `migrate.js` 자동 실행 (`001_auth.sql`)
 - CORS `CORS_ORIGINS`에 Vercel origin 허용 (RW-6)
-- **남은 것:** RW-5 — 프론트 `API_BASE`·`WS_URL`을 Railway URL로 연동
+- **RW-5 완료:** Vercel rewrite `/api/*`→Railway + WS_PATH Railway WSS 직접 연결
 
 ---
 
@@ -245,7 +245,7 @@ stock-tracker/
 | **RW-0~4** Railway 서비스·Docker·env·배포 | ✅ 2026-05-21 |
 | **RW-6** CORS `CORS_ORIGINS` 미들웨어 | ✅ 2026-05-21 |
 | **RW-9** Railway Postgres 연결 (`DATABASE_URL`) | ✅ 2026-05-21 |
-| RW-5 프론트 `API_BASE`·`WS_URL` Railway 연동 | ⬜ 다음 단계 |
+| **RW-5** Vercel rewrite + WS_PATH Railway 연동 | ✅ 2026-05-21 |
 
 ```bash
 npm run install:all
@@ -317,11 +317,11 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 | RW-4 | 공개 HTTPS URL `stock-tracker-production-7e54.up.railway.app` | ✅ 2026-05-21 |
 | RW-6 | CORS `CORS_ORIGINS` (Vercel origin 허용) | ✅ 2026-05-21 |
 | RW-9 | Railway Postgres 연결 (`DATABASE_URL` 참조변수) + 마이그레이션 자동 실행 | ✅ 2026-05-21 |
-| RW-5 | 프론트 `API_BASE`·`WS_URL` → Railway URL 연동 | ⬜ **다음 단계** |
+| RW-5 | Vercel rewrite `/api/*`→Railway + WS_PATH Railway WSS + `api/[[...slug]].js` 삭제 | ✅ 2026-05-21 |
 | RW-7 | `qa:prod` / `QA_API_BASE` Railway API 검사 | ⬜ |
 | RW-8 | Vercel API 유지 vs Railway 전용 역할 문서화 | ⬜ |
 
-**달성:** Vercel(프론트+PWA) + Railway(API·WebSocket·DB) 분리 운영. US 실시간 시세 가능.
+**달성:** Vercel(프론트+PWA) + Railway(백엔드+DB+WebSocket) 완전 연동. US 실시간 시세 활성화.
 
 ### 11.1-B 1-B순위 — 디자인 (Minimal + Glass Hybrid) ✅ 2026-05-20 완료
 
