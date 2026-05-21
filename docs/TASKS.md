@@ -19,6 +19,7 @@
 | O-6 | 문서 동기화 (전체 docs·README·PROJECT) | 2026-05-19 |
 | O-7 | AI 핸드오프 문서 `HANDOFF.md` | 2026-05-19 |
 | DS-0~9 | 디자인 리디자인 (Minimal + Glass Hybrid) | 2026-05-20 |
+| DS-10 | PWA 스크린샷 갱신 (실제 앱 Puppeteer 캡처 · Vercel 재배포) | 2026-05-21 |
 | RW-0 | Railway 프로젝트·서비스 생성 | 2026-05-21 |
 | RW-1 | Dockerfile `backend/` build context 수정·배포 | 2026-05-21 |
 | RW-2 | Railway 환경변수 `FINNHUB_API_KEY`, `SESSION_SECRET`, `ADMIN_SECRET` | 2026-05-21 |
@@ -46,15 +47,7 @@
 
 ---
 
-## 1순위 — 디자인 마무리 (Minimal + Glass Hybrid)
-
-| ID | 타스크 | 상태 |
-|----|--------|------|
-| DS-10 | 디자인 QA·PWA 스크린샷 갱신 (`npm run fix:pwa` 후 Vercel 재배포) | ⬜ |
-
----
-
-## 2순위 — Vercel·PWA
+## 1순위 — Vercel·PWA
 
 | ID | 타스크 | 상태 |
 |----|--------|------|
