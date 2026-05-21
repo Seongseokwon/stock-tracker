@@ -620,6 +620,53 @@ body {
   display: none;
 }
 
+/* Header separator */
+.header-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* Logout button */
+.logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--glass-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 500;
+  font-family: var(--font-main);
+  letter-spacing: 0.01em;
+  transition: border-color 0.18s, background 0.18s, color 0.18s;
+  white-space: nowrap;
+}
+
+.logout-btn:hover {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: var(--red-dim);
+  color: var(--red);
+}
+
+.logout-btn:active {
+  opacity: 0.8;
+}
+
+.logout-label {
+  display: inline;
+}
+
+@media (max-width: 600px) {
+  .logout-label { display: none; }
+  .logout-btn { padding: 0; width: 34px; justify-content: center; }
+}
+
 .card-alert-icon {
   font-size: 0.82rem;
   line-height: 1;
