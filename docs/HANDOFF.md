@@ -3,10 +3,11 @@
 > **이 파일 하나만 읽어도** 프로젝트의 목적·구조·현황·제약·향후 방향을 파악할 수 있도록 작성했습니다.  
 > 다른 AI·개발자 온보딩용 **마스터 문서**입니다.
 
-**문서 버전:** 2026-05-21 (PostgreSQL DB 연동 · 1회용 코드 인증 · Docker 로컬 DB)  
-**프로덕션 URL:** https://stock-tracker-opal-six.vercel.app  
+**문서 버전:** 2026-05-21 (PostgreSQL DB 연동 · 1회용 코드 인증 · **Railway 백엔드 배포 완료**)  
+**프론트 URL:** https://stock-tracker-opal-six.vercel.app  
+**백엔드 URL:** https://stock-tracker-production-7e54.up.railway.app  
 **로컬 실행:** `npm start` → http://localhost:3000  
-**Git:** ✅ 초기 커밋 완료 (`41363fc`, 2026-05-20) — branch: `main`
+**Git:** ✅ branch: `main`
 
 ---
 
@@ -26,8 +27,8 @@
 | KR 데이터 | Yahoo Finance Chart/Quote/Summary (비공식) |
 | KR 한글 검색 | `backend/data/kr-stocks.json` + `kr-search.js` (~247종) |
 | 환율 | Frankfurter (`/api/fx`) |
-| 저장 | `localStorage` (관심목록·포트폴리오·알림) · **로컬: Docker PostgreSQL 16** |
-| 배포 | Vercel (프론트) · **Railway 백엔드 예정 (RW-*)** · 로컬 통합 |
+| 저장 | `localStorage` (관심목록·포트폴리오·알림) · Docker PostgreSQL 16 (로컬) · Railway Postgres (프로덕션) |
+| 배포 | Vercel (프론트) · **Railway (백엔드 API·WebSocket) ✅ 2026-05-21** · 로컬 통합 |
 
 ---
 
@@ -110,14 +111,14 @@ stock-tracker/
 
 환경 변수: Vercel 대시보드에 `FINNHUB_API_KEY` (Production + Preview). `.env`는 업로드되지 않음.
 
-### 4.3 Railway 백엔드 (목표 · RW-*)
+### 4.3 Railway 백엔드 ✅ 2026-05-21 배포 완료
 
-> 상세: **[docs/DEPLOY-RAILWAY.md](./DEPLOY-RAILWAY.md)**
+**URL:** `https://stock-tracker-production-7e54.up.railway.app`
 
 ```
 브라우저 (Vercel 정적)
-    ├── REST /api/*  →  https://xxx.up.railway.app  (Express 상시)
-    └── WS   /ws     →  wss://xxx.up.railway.app/ws  (Finnhub 프록시)
+    ├── REST /api/*  →  https://stock-tracker-production-7e54.up.railway.app  (Express 상시)
+    └── WS   /ws     →  wss://stock-tracker-production-7e54.up.railway.app/ws  (Finnhub 프록시)
 ```
 
 | 항목 | Vercel API | Railway |
@@ -125,8 +126,12 @@ stock-tracker/
 | US WebSocket | ❌ | ✅ `wsSupported: true` |
 | 프로세스 | Serverless | 상시 Node |
 | `VERCEL` env | `1` | **설정 안 함** |
+| DB (PostgreSQL) | ❌ | ✅ Railway Postgres 연결 |
 
-프론트: `API_BASE`·`WS_URL`을 Railway URL로 주입 (RW-5). CORS에 Vercel origin 허용 (RW-6).
+- Railway 서비스 루트: `backend/` (Docker build context = `backend/`)
+- 배포마다 `migrate.js` 자동 실행 (`001_auth.sql`)
+- CORS `CORS_ORIGINS`에 Vercel origin 허용 (RW-6)
+- **남은 것:** RW-5 — 프론트 `API_BASE`·`WS_URL`을 Railway URL로 연동
 
 ---
 
@@ -237,6 +242,10 @@ stock-tracker/
 | L-3 `GET /api/auth/me` + `POST /api/auth/logout` (DB 세션) | ✅ 2026-05-21 |
 | L-5 1회용 코드 생성 CLI (`gen-code.js`) | ✅ 2026-05-21 |
 | L-6 SPA 인증 가드 + 로그아웃 버튼 | ✅ 2026-05-21 |
+| **RW-0~4** Railway 서비스·Docker·env·배포 | ✅ 2026-05-21 |
+| **RW-6** CORS `CORS_ORIGINS` 미들웨어 | ✅ 2026-05-21 |
+| **RW-9** Railway Postgres 연결 (`DATABASE_URL`) | ✅ 2026-05-21 |
+| RW-5 프론트 `API_BASE`·`WS_URL` Railway 연동 | ⬜ 다음 단계 |
 
 ```bash
 npm run install:all
@@ -285,6 +294,8 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 | DEPLOY-01 | Vercel `/api/*` 404 | `api/[[...slug]].js` |
 | DEPLOY-02 | `public` output 오류 | `outputDirectory: frontend` |
 | DEPLOY-03 | `functions`+`builds` 동시 사용 불가 | `functions`+`rewrites`만 |
+| DEPLOY-04 | Railway `/backend: not found` 빌드 실패 | Dockerfile의 `COPY backend/ ./backend/` → `COPY . ./` (build context = `backend/`) |
+| DEPLOY-05 | `backend/package-lock.json`에 `file:..` symlink 참조 → Docker 빌드 오류 | isolated dir에서 `npm install` 재생성 |
 | UI | 모달 헤더에 가림 | `z-index`, `ensureModalOnBody()` |
 | UI | 배당률 % 표시 오류 | `formatFinnhubPercent` |
 | PWA | icon 크기·스크린샷 | 512×512 PNG, wide/narrow screenshots |
@@ -293,20 +304,24 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 
 ## 11. 앞으로의 개발 방향
 
-### 11.1 1순위 — Railway 백엔드 배포
+### 11.1 1순위 — Railway 백엔드 배포 ✅ 완료 (2026-05-21)
 
-> 상세: **[docs/DEPLOY-RAILWAY.md](./DEPLOY-RAILWAY.md)**
+**배포 URL:** `https://stock-tracker-production-7e54.up.railway.app`
 
-| ID | 작업 | 요약 |
+| ID | 작업 | 상태 |
 |----|------|------|
-| RW-0~RW-4 | Railway 서비스·env·배포 | Docker 이미지 방식으로 전환, Hub push 대기 중 |
-| RW-5 | 프론트 API_BASE/WS_URL | Railway URL 확정 후 진행 |
-| RW-6 | CORS | ✅ `CORS_ORIGINS` 미들웨어 (`server.js`) |
-| Docker | Dockerfile + 빌드·테스트 | ✅ `wsSupported: true` 로컬 확인 완료 |
-| RW-7~RW-8 | QA·역할 분담 | `wsSupported: true`, Vercel API 유지 여부 |
-| RW-9 | (선택) | Railway Postgres + L-* |
+| RW-0 | Railway 프로젝트·서비스 생성 | ✅ 2026-05-21 |
+| RW-1 | Dockerfile 작성·빌드 (`node:18-alpine`, `backend/` build context) | ✅ 2026-05-21 |
+| RW-2 | 환경변수 `FINNHUB_API_KEY`, `SESSION_SECRET`, `ADMIN_SECRET` | ✅ 2026-05-21 |
+| RW-3 | 배포 후 `/api/health` → `wsSupported: true` | ✅ 2026-05-21 |
+| RW-4 | 공개 HTTPS URL `stock-tracker-production-7e54.up.railway.app` | ✅ 2026-05-21 |
+| RW-6 | CORS `CORS_ORIGINS` (Vercel origin 허용) | ✅ 2026-05-21 |
+| RW-9 | Railway Postgres 연결 (`DATABASE_URL` 참조변수) + 마이그레이션 자동 실행 | ✅ 2026-05-21 |
+| RW-5 | 프론트 `API_BASE`·`WS_URL` → Railway URL 연동 | ⬜ **다음 단계** |
+| RW-7 | `qa:prod` / `QA_API_BASE` Railway API 검사 | ⬜ |
+| RW-8 | Vercel API 유지 vs Railway 전용 역할 문서화 | ⬜ |
 
-**목표:** Vercel은 **프론트+PWA** 유지, **API·WebSocket은 Railway**로 이전 → US 실시간 시세.
+**달성:** Vercel(프론트+PWA) + Railway(API·WebSocket·DB) 분리 운영. US 실시간 시세 가능.
 
 ### 11.1-B 1-B순위 — 디자인 (Minimal + Glass Hybrid) ✅ 2026-05-20 완료
 
@@ -520,6 +535,8 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 | 인증: HMAC 쿠키 | Stateless 토큰 — 서버 재시작 후 세션 유지, Vercel serverless 동작 |
 | DB: Docker PostgreSQL 5433 | 로컬 5432 충돌 회피; Railway 배포 시 Railway Postgres URL로 교체 |
 | DB auth: 환경변수 fallback 유지 | Vercel(DB 없음) + 기존 env 코드 하위호환 동시 지원 |
+| Railway Dockerfile build context | 서비스 루트 = `backend/` → `COPY . ./` + `node server.js` (서브디렉터리 참조 금지) |
+| Railway `package-lock.json` 격리 생성 | `npm install` 부모 디렉터리 참조 오염 방지 → isolated tmp dir에서 생성 |
 
 ---
 

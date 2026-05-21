@@ -1,6 +1,6 @@
 # 인증 시스템
 
-**최종 갱신:** 2026-05-21 (관리자 API · 커스텀 코드 CLI · 통합 테스트)  
+**최종 갱신:** 2026-05-21 (관리자 API · 커스텀 코드 CLI · 통합 테스트 · **Railway 배포 완료**)  
 **작업 ID:** L-0 ~ L-10 ([TASKS.md](./TASKS.md))
 
 ---
@@ -218,9 +218,30 @@ curl -X POST http://localhost:3000/api/admin/codes \
 
 ---
 
-## 프로덕션 (Vercel) 대응
+## 배포 환경별 동작
 
-Vercel에는 DATABASE_URL이 없으므로 **env 모드**(환경변수 코드만)로 동작.  
-DB 기반 인증은 로컬·Railway 배포 환경에서 활성화됨.
+| 환경 | DATABASE_URL | 인증 모드 | 세션 |
+|------|-------------|-----------|------|
+| 로컬 (`npm start`) | Docker PostgreSQL 5433 | DB 코드 우선 + env fallback | DB sessions 테이블 |
+| Vercel (프론트 전용) | ❌ 없음 | env 모드 (`AUTH_CODE` 환경변수만) | HMAC stateless |
+| **Railway** ✅ | Railway Postgres | **DB 코드 우선 + env fallback** | DB sessions 테이블 |
 
-Railway 배포 시: `DATABASE_URL` 환경변수를 Railway Postgres URL로 설정하면 자동 전환.
+**Railway 배포 URL:** `https://stock-tracker-production-7e54.up.railway.app`  
+- `/api/health` → `{"ok":true,"finnhubConfigured":true,"wsSupported":true}`
+- 배포 시 `migrate.js` 자동 실행 → DB 스키마 자동 생성
+
+### Railway admin API 호출 예
+
+```bash
+# 프로덕션 코드 생성 (ADMIN_SECRET은 Railway 환경변수 참조)
+curl -X POST https://stock-tracker-production-7e54.up.railway.app/api/admin/codes \
+  -H "Content-Type: application/json" \
+  -H "x-admin-secret: <RAILWAY_ADMIN_SECRET>" \
+  -d '{"days":30,"note":"신규 사용자"}'
+
+# 커스텀 코드 지정
+curl -X POST https://stock-tracker-production-7e54.up.railway.app/api/admin/codes \
+  -H "Content-Type: application/json" \
+  -H "x-admin-secret: <RAILWAY_ADMIN_SECRET>" \
+  -d '{"code":"SP-VIP-0001","days":90,"note":"VIP 초대"}'
+```

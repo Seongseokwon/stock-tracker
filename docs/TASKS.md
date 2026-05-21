@@ -1,7 +1,8 @@
 # StockPulse — 작업 목록
 
-**최종 갱신:** 2026-05-21 (PostgreSQL DB 연동 · 1회용 코드 인증 · Docker 로컬 DB)  
-**프로덕션:** https://stock-tracker-opal-six.vercel.app  
+**최종 갱신:** 2026-05-21 (PostgreSQL DB 연동 · 1회용 코드 인증 · **Railway 백엔드 배포 완료**)  
+**프론트:** https://stock-tracker-opal-six.vercel.app  
+**백엔드:** https://stock-tracker-production-7e54.up.railway.app  
 **마스터 문서:** [HANDOFF.md](./HANDOFF.md)
 
 ---
@@ -22,6 +23,14 @@
 | — | `railway.json` 생성 후 제거 (CLI 네트워크 이슈로 Docker 방식 전환) | 2026-05-20 |
 | — | `Dockerfile` + `.dockerignore` 생성, 빌드·헬스체크 로컬 검증 완료 | 2026-05-20 |
 | L-6 | `login.html` UI — 1회용 코드 폼 + 이메일/Slack FAB | 2026-05-20 |
+| RW-0 | Railway 프로젝트·서비스 생성 | 2026-05-21 |
+| RW-1 | Dockerfile `backend/` build context 수정·배포 (`COPY . ./`, `node server.js`) | 2026-05-21 |
+| RW-2 | Railway 환경변수 `FINNHUB_API_KEY`, `SESSION_SECRET`, `ADMIN_SECRET` | 2026-05-21 |
+| RW-3 | `/api/health` → `{"ok":true,"wsSupported":true}` | 2026-05-21 |
+| RW-4 | 공개 URL `stock-tracker-production-7e54.up.railway.app` | 2026-05-21 |
+| RW-9 | Railway Postgres `DATABASE_URL` 참조변수 연결 + 마이그레이션 자동 실행 | 2026-05-21 |
+| — | `backend/package-lock.json` `file:..` symlink 제거 (isolated 재생성) | 2026-05-21 |
+| — | `backend/.dockerignore` 추가 (`.env`, `node_modules` 제외) | 2026-05-21 |
 | L-0 | Docker PostgreSQL 5433 + `DATABASE_URL` 설정 (로컬 5432 충돌 회피) | 2026-05-21 |
 | L-1 | DB 마이그레이션: `users` · `login_codes` · `sessions` (001_auth.sql) | 2026-05-21 |
 | L-2 | `POST /api/auth/login` — DB 1회용 코드 조회 + `AUTH_CODE` env fallback | 2026-05-21 |
@@ -39,24 +48,24 @@
 
 ---
 
-## 1순위 — Railway 백엔드 배포
+## 1순위 — Railway 백엔드 배포 ✅ 완료
 
-> 기획: [DEPLOY-RAILWAY.md](./DEPLOY-RAILWAY.md) — Vercel(프론트) + Railway(API·**WebSocket**)
+**URL:** https://stock-tracker-production-7e54.up.railway.app
 
 | ID | 타스크 | 상태 |
 |----|--------|------|
-| RW-0 | Railway 프로젝트·배포 방식 결정 | 🔄 CLI 네트워크 이슈 → **Docker Hub 이미지 배포 방식으로 전환** |
-| RW-1 | Docker 이미지 빌드·Hub push | 🔄 빌드 완료, Docker Hub push 대기 |
-| RW-2 | 환경 변수 `FINNHUB_API_KEY` ( **`VERCEL` 설정 금지** ) | ⬜ |
-| RW-3 | 배포 후 `/api/health` → `wsSupported: true` | ⬜ |
-| RW-4 | 공개 HTTPS URL (`*.up.railway.app`) | ⬜ |
-| RW-5 | 프론트 `API_BASE`·`WS_URL` Railway 연동 | ⬜ RW-4 완료 후 |
+| RW-0 | Railway 프로젝트·서비스 생성 | ✅ 2026-05-21 |
+| RW-1 | Dockerfile 작성·빌드 (`backend/` build context, `COPY . ./`) | ✅ 2026-05-21 |
+| RW-2 | 환경변수 `FINNHUB_API_KEY`, `SESSION_SECRET`, `ADMIN_SECRET` | ✅ 2026-05-21 |
+| RW-3 | 배포 후 `/api/health` → `wsSupported: true` | ✅ 2026-05-21 |
+| RW-4 | 공개 HTTPS URL `stock-tracker-production-7e54.up.railway.app` | ✅ 2026-05-21 |
 | RW-6 | CORS — Vercel origin 허용 | ✅ 2026-05-20 |
-| RW-7 | `qa:prod` / `QA_API_BASE` 프로덕션 API 검사 | ⬜ |
+| RW-9 | Railway Postgres `DATABASE_URL` + 자동 마이그레이션 | ✅ 2026-05-21 |
+| RW-5 | 프론트 `API_BASE`·`WS_URL` Railway 연동 | ⬜ **다음 단계** |
+| RW-7 | `qa:prod` / `QA_API_BASE` Railway API 검사 | ⬜ |
 | RW-8 | Vercel API 유지 vs Railway 전용 역할 문서화 | ⬜ |
-| RW-9 | (선택) Railway Postgres + L-* DB | ⬜ |
 
-**효과:** US 주식 **WebSocket 실시간** (Vercel serverless 한계 해소)
+**달성:** US 주식 **WebSocket 실시간** (Vercel serverless 한계 해소) — 프론트 연동(RW-5)만 남음
 
 ---
 
