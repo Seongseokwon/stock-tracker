@@ -2,13 +2,13 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "framework": null,
-  "installCommand": "npm install && npm install --prefix backend",
+  "installCommand": "npm install",
   "buildCommand": "npm run build:kr-stocks && node scripts/patch-og-url.mjs",
   "outputDirectory": "frontend",
-  "functions": {
-    "api/[[...slug]].js": {
-      "maxDuration": 30,
-      "includeFiles": "backend/**"
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://stock-tracker-production-7e54.up.railway.app/api/:path*"
     }
-  }
+  ]
 }

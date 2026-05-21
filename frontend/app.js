@@ -3,8 +3,12 @@
    API 키는 서버 프록시에서만 사용 (npm start 필수)
    ============================================================ */
 
-const API_BASE = ''; // same-origin — server.js 프록시
-const WS_PATH = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
+const API_BASE = ''; // same-origin → 로컬: Express / Vercel: rewrite → Railway
+// WebSocket: 로컬은 같은 서버, Vercel 배포는 Railway 직접 연결 (Vercel WS 미지원)
+const _isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
+const WS_PATH = _isLocal
+  ? `ws://${location.host}/ws`
+  : 'wss://stock-tracker-production-7e54.up.railway.app/ws';
 const POLL_INTERVAL_KR_OPEN = 3000;
 const POLL_INTERVAL_KR_CLOSED = 60000;
 const POLL_INTERVAL_US_FALLBACK = 20000;
