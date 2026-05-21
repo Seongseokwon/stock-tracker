@@ -27,6 +27,7 @@ const FX_API = 'https://api.frankfurter.app/latest';
 
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 const { hasHangul, searchKrLocal, mergeSearchResults } = require('./kr-search');
+const db = require('./db');
 
 const app = express();
 const isVercel = Boolean(process.env.VERCEL);
@@ -173,9 +174,11 @@ function parseYahooOhlc(json) {
 }
 
 /* --- Auth utilities --- */
-function createSessionToken() {
+// src: 'db' = DB 1회용 코드로 로그인, 'env' = 환경변수 코드로 로그인 (하위호환)
+function createSessionToken(uid, src = 'env') {
   const payload = Buffer.from(JSON.stringify({
-    uid: crypto.randomUUID(),
+    uid: uid || crypto.randomUUID(),
+    src,
     exp: Date.now() + 7 * 24 * 60 * 60 * 1000,
   })).toString('base64url');
   const sig = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
@@ -211,29 +214,127 @@ function parseCookies(req) {
 const COOKIE_SECURE = isVercel ? '; Secure' : '';
 const COOKIE_BASE = `HttpOnly; SameSite=Lax; Path=/${COOKIE_SECURE}`;
 
-app.post('/api/auth/login', (req, res) => {
-  const code = (req.body?.code || '').toUpperCase().trim();
-  if (!code || AUTH_CODES.length === 0 || !AUTH_CODES.includes(code)) {
-    res.setHeader('Cache-Control', 'no-store');
-    return res.status(401).json({ error: 'invalid_code' });
-  }
-  const token = createSessionToken();
-  res.setHeader('Set-Cookie', `sp_sess=${token}; ${COOKIE_BASE}; Max-Age=${7 * 24 * 3600}`);
+app.post('/api/auth/login', async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
+  const code = (req.body?.code || '').toUpperCase().trim();
+  if (!code) return res.status(401).json({ error: 'invalid_code' });
+
+  let userId = null;
+  let src = 'env';
+
+  if (db.pool) {
+    // DB 1회용 코드 조회
+    const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+    try {
+      const result = await db.query(
+        `SELECT id, user_id FROM login_codes
+         WHERE code_hash = $1 AND used_at IS NULL AND expires_at > NOW()
+         LIMIT 1`,
+        [codeHash]
+      );
+      if (result && result.rows.length > 0) {
+        const row = result.rows[0];
+        userId = row.user_id;
+        if (!userId) {
+          // 처음 로그인 → 새 사용자 생성
+          const uRes = await db.query(
+            `INSERT INTO users (last_login_at) VALUES (NOW()) RETURNING id`
+          );
+          userId = uRes.rows[0].id;
+        } else {
+          await db.query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [userId]);
+        }
+        await db.query(
+          'UPDATE login_codes SET used_at = NOW(), user_id = $1 WHERE id = $2',
+          [userId, row.id]
+        );
+        src = 'db';
+      } else {
+        // DB에 코드 없음 → 환경변수 fallback
+        if (AUTH_CODES.length === 0 || !AUTH_CODES.includes(code)) {
+          return res.status(401).json({ error: 'invalid_code' });
+        }
+      }
+    } catch (err) {
+      console.error('[auth/login] DB error:', err.message);
+      // DB 오류 시 환경변수 fallback
+      if (AUTH_CODES.length === 0 || !AUTH_CODES.includes(code)) {
+        return res.status(401).json({ error: 'invalid_code' });
+      }
+    }
+  } else {
+    // DB 없음 → 환경변수 인증
+    if (AUTH_CODES.length === 0 || !AUTH_CODES.includes(code)) {
+      return res.status(401).json({ error: 'invalid_code' });
+    }
+  }
+
+  const token = createSessionToken(userId, src);
+
+  // DB 세션 저장 (DB 코드 로그인 시)
+  if (src === 'db' && userId) {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    try {
+      await db.query(
+        `INSERT INTO sessions (user_id, token_hash, expires_at)
+         VALUES ($1, $2, NOW() + INTERVAL '7 days')`,
+        [userId, tokenHash]
+      );
+    } catch (err) {
+      console.error('[auth/login] session insert error:', err.message);
+    }
+  }
+
+  res.setHeader('Set-Cookie', `sp_sess=${token}; ${COOKIE_BASE}; Max-Age=${7 * 24 * 3600}`);
   res.json({ ok: true });
 });
 
-app.get('/api/auth/me', (req, res) => {
+app.get('/api/auth/me', async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const cookies = parseCookies(req);
   const payload = verifySessionToken(cookies.sp_sess);
   if (!payload) return res.status(401).json({ loggedIn: false });
+
+  // DB 세션 검증 (DB 코드로 로그인한 세션만)
+  if (payload.src === 'db' && db.pool && cookies.sp_sess) {
+    try {
+      const tokenHash = crypto.createHash('sha256').update(cookies.sp_sess).digest('hex');
+      const result = await db.query(
+        'SELECT id FROM sessions WHERE token_hash = $1 AND expires_at > NOW()',
+        [tokenHash]
+      );
+      if (!result || result.rows.length === 0) {
+        return res.status(401).json({ loggedIn: false });
+      }
+    } catch (err) {
+      console.error('[auth/me] DB error:', err.message);
+      // DB 오류 시 HMAC 검증만으로 통과
+    }
+  }
+
   res.json({ loggedIn: true, uid: payload.uid });
 });
 
-app.post('/api/auth/logout', (req, res) => {
-  res.setHeader('Set-Cookie', `sp_sess=; ${COOKIE_BASE}; Max-Age=0`);
+app.post('/api/auth/logout', async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
+
+  // DB 세션 삭제 (DB 코드로 로그인한 세션만)
+  if (db.pool) {
+    const cookies = parseCookies(req);
+    if (cookies.sp_sess) {
+      const payload = verifySessionToken(cookies.sp_sess);
+      if (payload?.src === 'db') {
+        const tokenHash = crypto.createHash('sha256').update(cookies.sp_sess).digest('hex');
+        try {
+          await db.query('DELETE FROM sessions WHERE token_hash = $1', [tokenHash]);
+        } catch (err) {
+          console.error('[auth/logout] DB error:', err.message);
+        }
+      }
+    }
+  }
+
+  res.setHeader('Set-Cookie', `sp_sess=; ${COOKIE_BASE}; Max-Age=0`);
   res.json({ ok: true });
 });
 

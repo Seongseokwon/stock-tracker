@@ -3,7 +3,7 @@
 > **이 파일 하나만 읽어도** 프로젝트의 목적·구조·현황·제약·향후 방향을 파악할 수 있도록 작성했습니다.  
 > 다른 AI·개발자 온보딩용 **마스터 문서**입니다.
 
-**문서 버전:** 2026-05-21 (SPA 로그인 흐름 구현 · 경량 인증 · 로그아웃 버튼)  
+**문서 버전:** 2026-05-21 (PostgreSQL DB 연동 · 1회용 코드 인증 · Docker 로컬 DB)  
 **프로덕션 URL:** https://stock-tracker-opal-six.vercel.app  
 **로컬 실행:** `npm start` → http://localhost:3000  
 **Git:** ✅ 초기 커밋 완료 (`41363fc`, 2026-05-20) — branch: `main`
@@ -12,7 +12,7 @@
 
 ## 1. 한 줄 요약
 
-**StockPulse**는 미국 주식(Finnhub)과 한국 주식(Yahoo Finance)을 한 화면에서 추적하는 **Vanilla JS + Node/Express** 웹 앱이다. API 키는 서버에만 두고, 관심목록·포트폴리오·알림·차트·PWA·URL 공유를 제공한다. **현재** 관심목록은 **localStorage**; 로그인은 **환경변수 1회용 코드 + HMAC 쿠키 세션** (DB 없음); **예정(L-*)** DB 연동으로 코드 다중 관리 + 관심종목 서버 저장.
+**StockPulse**는 미국 주식(Finnhub)과 한국 주식(Yahoo Finance)을 한 화면에서 추적하는 **Vanilla JS + Node/Express** 웹 앱이다. API 키는 서버에만 두고, 관심목록·포트폴리오·알림·차트·PWA·URL 공유를 제공한다. **현재** 관심목록은 **localStorage**; 로그인은 **Docker PostgreSQL 1회용 코드 + HMAC 쿠키 세션**; DB 없으면 환경변수 코드로 fallback; **예정(L-4~)** 관심종목 서버 저장.
 
 ---
 
@@ -26,7 +26,7 @@
 | KR 데이터 | Yahoo Finance Chart/Quote/Summary (비공식) |
 | KR 한글 검색 | `backend/data/kr-stocks.json` + `kr-search.js` (~247종) |
 | 환율 | Frankfurter (`/api/fx`) |
-| 저장 | `localStorage` (관심목록·포트폴리오·알림) · **DB 없음 → L-* MVP 예정** |
+| 저장 | `localStorage` (관심목록·포트폴리오·알림) · **로컬: Docker PostgreSQL 16** |
 | 배포 | Vercel (프론트) · **Railway 백엔드 예정 (RW-*)** · 로컬 통합 |
 
 ---
@@ -46,13 +46,19 @@ stock-tracker/
 │   ├── og-image.png          # 카카오/OG 링크 미리보기
 │   ├── icon-192.svg          # 레거시 favicon 대체 가능
 │   └── screenshots/          # PWA wide/narrow
+├── docker-compose.yml        # 로컬 PostgreSQL 16 (포트 5433)
 ├── Dockerfile                # 백엔드 Docker 이미지 (node:18-alpine, 프로덕션 only)
 ├── .dockerignore             # Docker 빌드 제외 목록
 ├── backend/
 │   ├── server.js             # Express 앱 export + 로컬 HTTP/WS + CORS 미들웨어
+│   ├── db.js                 # pg Pool (DATABASE_URL 없으면 null)
+│   ├── migrate.js            # 마이그레이션 실행 (npm run db:migrate)
+│   ├── gen-code.js           # 1회용 로그인 코드 생성 CLI
+│   ├── migrations/
+│   │   └── 001_auth.sql      # users · login_codes · sessions 테이블
 │   ├── kr-search.js          # 한글 로컬 검색 (priority, aliases)
 │   ├── data/kr-stocks.json   # 빌드 스크립트로 생성 (~247종)
-│   ├── .env                  # FINNHUB_API_KEY (git 제외)
+│   ├── .env                  # FINNHUB_API_KEY, DATABASE_URL (git 제외)
 │   └── .env.example
 ├── api/
 │   └── [[...slug]].js        # Vercel 진입점 → require(backend/server)
@@ -138,9 +144,9 @@ stock-tracker/
 | GET | `/api/news?symbol=` | Finnhub 7일 (종목별) | `[]` | |
 | GET | `/api/macro-news` | *(미구현 N-1)* | — | 매크로·경제 허브 |
 | GET | `/api/briefing?symbol=&slot=` | *(미구현 A-1)* | US/KR | 시간대별 AI·규칙 요약 |
-| POST | `/api/auth/login` | ✅ | — | `AUTH_CODE` 환경변수 검증 → HttpOnly 쿠키 발급 |
-| GET | `/api/auth/me` | ✅ | — | 쿠키 검증 → `{ loggedIn, uid }` |
-| POST | `/api/auth/logout` | ✅ | — | 쿠키 만료 처리 |
+| POST | `/api/auth/login` | ✅ | — | DB 1회용 코드 조회 → 쿠키 발급 (env fallback) |
+| GET | `/api/auth/me` | ✅ | — | 쿠키·DB 세션 검증 → `{ loggedIn, uid }` |
+| POST | `/api/auth/logout` | ✅ | — | DB 세션 삭제 + 쿠키 만료 |
 | GET/PUT | `/api/watchlist` | *(미구현 L-4)* | — | 로그인 사용자 관심종목 (DB 필요) |
 | GET | `/api/metrics?symbol=` | Finnhub | `null` | |
 | WS | `/ws` | Finnhub 프록시 | 미지원 | 로컬만 |
@@ -224,13 +230,19 @@ stock-tracker/
 | UI-1 카드 종목명 위·코드 아래 | ✅ 2026-05-19 |
 | DS-0~9 Minimal+Glass 리디자인 | ✅ 2026-05-20 |
 | DS-10 PWA 스크린샷 갱신 | ⬜ `npm run fix:pwa` 후 재배포 필요 |
-| L-2 `POST /api/auth/login` (환경변수 코드) | ✅ 2026-05-21 |
-| L-3 `GET /api/auth/me` + `POST /api/auth/logout` | ✅ 2026-05-21 |
+| L-0 Docker PostgreSQL 5433 + DATABASE_URL | ✅ 2026-05-21 |
+| L-1 DB 마이그레이션 (users, login_codes, sessions) | ✅ 2026-05-21 |
+| L-2 `POST /api/auth/login` (DB 코드 조회 + env fallback) | ✅ 2026-05-21 |
+| L-3 `GET /api/auth/me` + `POST /api/auth/logout` (DB 세션) | ✅ 2026-05-21 |
+| L-5 1회용 코드 생성 CLI (`gen-code.js`) | ✅ 2026-05-21 |
 | L-6 SPA 인증 가드 + 로그아웃 버튼 | ✅ 2026-05-21 |
 
 ```bash
 npm run install:all
-cp backend/.env.example backend/.env   # FINNHUB_API_KEY=
+cp backend/.env.example backend/.env   # FINNHUB_API_KEY=, DATABASE_URL=
+npm run db:up                        # Docker PostgreSQL 시작 (포트 5433)
+npm run db:migrate                   # 테이블 생성 (최초 1회)
+npm run db:gen-code                  # 1회용 로그인 코드 생성
 npm start                            # 로컬
 npm run qa                           # localhost:3000
 npm run qa:prod                      # 프로덕션 URL
@@ -331,17 +343,21 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 
 | ID | 상태 | 내용 |
 |----|------|------|
-| L-2 | ✅ 2026-05-21 | `POST /api/auth/login` — `AUTH_CODE` 환경변수 검증, HttpOnly 쿠키 발급 |
-| L-3 | ✅ 2026-05-21 | `GET /api/auth/me` + `POST /api/auth/logout` — HMAC 서명 쿠키 검증 |
+| L-0 | ✅ 2026-05-21 | Docker PostgreSQL 5433 + `DATABASE_URL` 설정 |
+| L-1 | ✅ 2026-05-21 | `users` · `login_codes` · `sessions` 테이블 생성 (001_auth.sql) |
+| L-2 | ✅ 2026-05-21 | `POST /api/auth/login` — DB 1회용 코드 조회 + env fallback |
+| L-3 | ✅ 2026-05-21 | `GET /api/auth/me` + `POST /api/auth/logout` — DB 세션 검증/삭제 |
+| L-5 | ✅ 2026-05-21 | 1회용 코드 생성 CLI (`backend/gen-code.js`) |
 | L-6 | ✅ 2026-05-21 | `login.html` UI + SPA 인증 가드 (`app.js init()`) + 헤더 로그아웃 버튼 |
-| L-0~1, L-4~5 | ⬜ | DB·다중 코드 관리·관심종목 서버 저장 — Railway 배포 후 진행 |
+| L-4 | ⬜ | `/api/watchlist` CRUD — DB 연결 완료, 구현 대기 |
 | L-7~9 | ⬜ | localStorage↔서버 병합·포트폴리오·알림 DB 확장 |
 
-**현재 인증 방식 (DB 없음):**
-- `AUTH_CODE` 환경변수에 코드 1개 저장
-- 일치 시 HMAC-SHA256 서명 쿠키(`sp_sess`) 발급, 7일 유효
-- 서버 재시작 시 기존 세션 유지 (`SESSION_SECRET` 동일 유지 시)
-- 로컬: `backend/.env`, Vercel: 대시보드 환경변수 설정 필요
+**현재 인증 방식:**
+- `npm run db:gen-code` 로 1회용 코드 생성 → DB `login_codes` 저장
+- 로그인 시 DB 코드 조회 → 사용 후 `used_at` 기록 (재사용 불가)
+- 신규 사용자 자동 생성(`users`), 세션 DB 저장(`sessions`)
+- DB 없거나 오류 시 `AUTH_CODE` 환경변수로 fallback (하위호환)
+- Vercel은 DATABASE_URL 없으므로 env 모드 동작
 
 **Slack 링크 수정 필요:** `#slackRequestBtn` href를 실제 워크스페이스 채널로 교체
 
@@ -448,8 +464,9 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 | `FINNHUB_API_KEY` | `backend/.env` / Vercel Env | US 기능 필수 |
 | `PORT` | `backend/.env` | 선택 (기본 3000) |
 | `VERCEL` | Vercel 자동 | 서버가 정적 서빙·WS 분기 |
-| `AUTH_CODE` | `backend/.env` / Vercel Env | 로그인 인증 코드 (대소문자 무시) |
+| `AUTH_CODE` | `backend/.env` / Vercel Env | fallback 인증 코드 (쉼표 구분 다중 지원, 대소문자 무시) |
 | `SESSION_SECRET` | `backend/.env` / Vercel Env | 세션 쿠키 HMAC 서명 비밀키 (기본값: `dev-secret-change-me`) |
+| `DATABASE_URL` | `backend/.env` | PostgreSQL 연결 URL (없으면 env 모드). 예: `postgresql://stockpulse:localdev@127.0.0.1:5433/stockpulse` |
 
 ---
 
@@ -496,7 +513,9 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 | localStorage | MVP 속도; **L-* 로 관심목록만 DB 이전 예정** |
 | Git 보류 | 사용자가 마지막에 진행하기로 |
 | 수익화 문서 분리 | HANDOFF는 요약, MONETIZATION·LEGAL에 상세 |
-| 인증: DB 없이 환경변수 코드 + HMAC 쿠키 | DB 연동 전 SPA 로그인 흐름 우선 구현; 나중에 L-0~L-1로 교체 가능 |
+| 인증: HMAC 쿠키 | Stateless 토큰 — 서버 재시작 후 세션 유지, Vercel serverless 동작 |
+| DB: Docker PostgreSQL 5433 | 로컬 5432 충돌 회피; Railway 배포 시 Railway Postgres URL로 교체 |
+| DB auth: 환경변수 fallback 유지 | Vercel(DB 없음) + 기존 env 코드 하위호환 동시 지원 |
 
 ---
 

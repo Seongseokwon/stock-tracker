@@ -5,87 +5,111 @@
 
 ---
 
-## 현재 구현 (Phase 1 — DB 없는 경량 버전)
+## 현재 구현 (Phase 2 — Docker PostgreSQL + 1회용 코드)
 
-환경변수 코드 1개 + HMAC-SHA256 서명 HttpOnly 쿠키. 새 npm 패키지 없음.
+로컬 Docker PostgreSQL(5433) + HMAC-SHA256 서명 HttpOnly 쿠키.  
+DB 1회용 코드가 우선, 없으면 `AUTH_CODE` 환경변수로 fallback.
 
-### 흐름
+### 로그인 흐름
 
 ```
 방문자 → / (index.html)
   ↓ app.js init() → GET /api/auth/me
   ↓ 401 → /login.html 리다이렉트
   ↓ 코드 입력 → POST /api/auth/login
-  ↓ 성공 → Set-Cookie: sp_sess (7일) → / (대시보드)
+        ├─ DB login_codes 조회 (code_hash, used_at IS NULL, expires_at > NOW)
+        │   ├─ 일치 → user 생성/갱신, used_at 기록, sessions INSERT
+        │   └─ 없음 → AUTH_CODE 환경변수 fallback
+        └─ Set-Cookie: sp_sess (7일) → / (대시보드)
 ```
 
-### 관련 파일
+### 세션 토큰 구조
 
-| 파일 | 역할 |
-|------|------|
-| `frontend/login.html` | 코드 입력 폼, 이메일/Slack 코드 요청 FAB |
-| `frontend/app.js` | `checkSession()`, `logout()`, `init()` 인증 가드 |
-| `frontend/index.html` | `<body style="visibility:hidden">` (FOUC 방지), 로그아웃 버튼 |
-| `backend/server.js` | `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout` |
+`base64url(JSON).HMAC_sig` — HMAC-SHA256, `SESSION_SECRET` 서명
 
-### 환경 변수
+```json
+{ "uid": "<uuid>", "src": "db|env", "exp": <epoch_ms> }
+```
 
-| 변수 | 설명 |
-|------|------|
-| `AUTH_CODE` | 로그인 허용 코드 (대소문자 무시, 예: `SP-DEMO-0000`) |
-| `SESSION_SECRET` | 쿠키 HMAC 서명 비밀키 (프로덕션에서 반드시 변경) |
+- `src: "db"` — DB 코드로 로그인, DB sessions 테이블에 token_hash 저장됨
+- `src: "env"` — 환경변수 코드로 로그인, HMAC 검증만 (하위호환)
 
-### API
-
-| 메서드 | 경로 | 설명 |
-|--------|------|------|
-| POST | `/api/auth/login` | `{ code }` → 검증 → HttpOnly 쿠키 발급 |
-| GET | `/api/auth/me` | 쿠키 검증 → `{ loggedIn, uid }` |
-| POST | `/api/auth/logout` | 쿠키 만료 처리 |
-
-**특성:** Stateless (서버 재시작 후에도 세션 유지), Vercel serverless 동작
+**특성:** 서버 재시작 시 `env` 세션 유지 (`SESSION_SECRET` 동일 시). `db` 세션은 DB sessions 레코드로 추적.
 
 ---
 
-## Phase 2 계획 — DB 연동 (L-0~L-5)
+## 관련 파일
 
-현재 코드 1개 방식 → 다중 코드 관리 + 관심종목 서버 저장
+| 파일 | 역할 |
+|------|------|
+| `docker-compose.yml` | PostgreSQL 16-alpine 컨테이너 (포트 5433) |
+| `backend/db.js` | pg Pool 초기화 (DATABASE_URL 없으면 null — env 모드 유지) |
+| `backend/migrate.js` | 마이그레이션 실행 (`npm run db:migrate`) |
+| `backend/migrations/001_auth.sql` | users · login_codes · sessions 테이블 + 인덱스 |
+| `backend/gen-code.js` | 1회용 코드 생성 CLI (`npm run db:gen-code`) |
+| `backend/server.js` | `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout` |
+| `frontend/login.html` | 코드 입력 폼 |
+| `frontend/app.js` | `checkSession()`, `logout()`, `init()` 인증 가드, bfcache 핸들러 |
+| `frontend/index.html` | `<body style="visibility:hidden">` (FOUC 방지), 로그아웃 버튼 |
 
-### DB 후보
+---
 
-| 옵션 | Vercel | Railway | 비고 |
-|------|--------|---------|------|
-| **Neon** (Postgres) | ✅ | ✅ | 연동 문서 많음 |
-| **Railway Postgres** | — | ✅ | RW-9, API와 동일 프로젝트 |
-| **Turso** (libSQL) | ✅ | ✅ | 서버리스 최적화 |
-| **Supabase** | ✅ | ✅ | 대시보드 편리 |
-
-### DB 스키마 (최소)
+## DB 스키마 (001_auth.sql)
 
 ```sql
-users (id TEXT, created_at TIMESTAMPTZ, last_login_at TIMESTAMPTZ)
+users (id UUID PK, created_at, last_login_at)
 
 login_codes (
-  id TEXT, code_hash TEXT UNIQUE, expires_at TIMESTAMPTZ,
-  max_uses INT DEFAULT 1, use_count INT DEFAULT 0
+  id UUID PK, code_hash TEXT UNIQUE,   -- SHA-256(원본코드)
+  user_id UUID → users,                -- 사용 후 연결
+  note TEXT, created_at, expires_at,
+  used_at TIMESTAMPTZ                  -- NULL = 미사용 (1회용)
 )
 
-sessions (id TEXT, user_id TEXT, token_hash TEXT, expires_at TIMESTAMPTZ)
-
-watchlist_items (
-  id TEXT, user_id TEXT, symbol TEXT, market TEXT,
-  sort_order INT, added_at TIMESTAMPTZ,
-  UNIQUE(user_id, symbol)
+sessions (
+  id UUID PK, user_id UUID → users ON DELETE CASCADE,
+  token_hash TEXT UNIQUE,              -- SHA-256(쿠키 raw token)
+  created_at, expires_at
 )
+
+-- Phase 2 확장 예정 (001_auth.sql 주석 해제):
+-- watchlist_items (id, user_id, symbol, market, sort_order, added_at)
 ```
 
-### 추가 API (Phase 2)
+---
+
+## 환경 변수
+
+| 변수 | 설명 |
+|------|------|
+| `AUTH_CODE` | fallback 코드 (대소문자 무시, 쉼표 구분 다중 지원). DB 코드 없을 때만 사용 |
+| `SESSION_SECRET` | 쿠키 HMAC 서명 비밀키 (프로덕션에서 반드시 변경) |
+| `DATABASE_URL` | PostgreSQL 연결 URL (없으면 env 모드로 동작) |
+
+---
+
+## API
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| GET/PUT/POST | `/api/watchlist` | 관심종목 서버 저장 |
-| DELETE | `/api/watchlist/:symbol` | 1종목 삭제 |
-| POST | `/api/admin/codes` | 코드 생성 (`ADMIN_SECRET` 필요) |
+| POST | `/api/auth/login` | `{ code }` → DB 조회 → 쿠키 발급 |
+| GET | `/api/auth/me` | 쿠키 검증 + DB 세션 확인(src=db) → `{ loggedIn, uid }` |
+| POST | `/api/auth/logout` | DB 세션 삭제 + 쿠키 만료 |
+
+---
+
+## npm 스크립트 (로컬 DB)
+
+```bash
+npm run db:up        # Docker PostgreSQL 컨테이너 시작 (5433)
+npm run db:down      # 컨테이너 중지
+npm run db:migrate   # 마이그레이션 실행 (001_auth.sql)
+npm run db:logs      # DB 로그 스트리밍
+npm run db:gen-code  # 1회용 로그인 코드 생성
+
+# 옵션 예시:
+node backend/gen-code.js --days 7 --note "데모용"
+```
 
 ---
 
@@ -93,25 +117,25 @@ watchlist_items (
 
 | ID | 작업 | 상태 |
 |----|------|------|
-| L-0 | DB 선택·`DATABASE_URL` | ⬜ |
-| L-1 | 테이블 생성 | ⬜ |
-| L-2 | `POST /api/auth/login` | ✅ 2026-05-21 |
-| L-3 | `GET /api/auth/me` + logout | ✅ 2026-05-21 |
-| L-4 | `/api/watchlist` CRUD | ⬜ DB 필요 |
-| L-5 | 운영자 코드 생성 CLI | ⬜ DB 필요 |
+| L-0 | DB 선택·`DATABASE_URL` (Docker PostgreSQL 5433) | ✅ 2026-05-21 |
+| L-1 | 테이블 생성 (`users`, `login_codes`, `sessions`) | ✅ 2026-05-21 |
+| L-2 | `POST /api/auth/login` (DB 코드 조회 + env fallback) | ✅ 2026-05-21 |
+| L-3 | `GET /api/auth/me` + `POST /api/auth/logout` (DB 세션 검증/삭제) | ✅ 2026-05-21 |
+| L-5 | 1회용 코드 생성 CLI (`gen-code.js`) | ✅ 2026-05-21 |
 | L-6 | SPA 인증 가드 + 로그아웃 버튼 | ✅ 2026-05-21 |
-| L-7 | 종목 추가/삭제 서버 동기화 | ⬜ L-4 완료 후 |
-| L-8 | 서버↔localStorage 병합 정책 | ⬜ |
 | L-9 | `.env.example` 갱신 | ✅ 2026-05-21 |
+| L-4 | `/api/watchlist` CRUD | ⬜ DB 연결 완료, 구현 대기 |
+| L-7 | 관심종목 추가/삭제 서버 동기화 | ⬜ L-4 완료 후 |
+| L-8 | 서버↔localStorage 병합 정책 | ⬜ |
 | L-10 | 포트폴리오·알림 DB 확장 (선택) | ⬜ |
 
 ---
 
 ## localStorage 관계
 
-| 키 | Phase 1 | Phase 2 (예정) |
-|----|---------|----------------|
-| `sp_watchlist` | localStorage | 서버 source of truth |
+| 키 | 현재 | Phase 3 (예정) |
+|----|------|----------------|
+| `sp_watchlist` | localStorage | 서버 source of truth (L-4/L-7) |
 | `sp_portfolio` | localStorage | localStorage 유지 |
 | `sp_alerts` | localStorage | localStorage 유지 |
 
@@ -123,5 +147,15 @@ watchlist_items (
 
 - 코드·세션 **평문 DB 저장 금지** (SHA-256 해시)
 - `SESSION_SECRET` 프로덕션용으로 교체 필수
-- HTTPS (Vercel 기본)
-- Rate limit: 로그인 시도 IP당 분당 N회 (Phase 2)
+- HTTPS (Vercel 기본) — Vercel 배포 시 `Secure` 쿠키 플래그 자동 적용
+- bfcache 재검증: `pageshow` 이벤트에서 `/api/auth/me` 재확인
+- Rate limit: 로그인 시도 IP당 분당 N회 (Phase 3 예정)
+
+---
+
+## 프로덕션 (Vercel) 대응
+
+Vercel에는 DATABASE_URL이 없으므로 **env 모드**(환경변수 코드만)로 동작.  
+DB 기반 인증은 로컬·Railway 배포 환경에서 활성화됨.
+
+Railway 배포 시: `DATABASE_URL` 환경변수를 Railway Postgres URL로 설정하면 자동 전환.
