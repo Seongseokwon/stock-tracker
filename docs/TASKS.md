@@ -1,6 +1,6 @@
 # StockPulse — 작업 목록
 
-**최종 갱신:** 2026-05-21 (PostgreSQL DB 연동 · 재사용 가능 로그인 코드 인증 · Railway 배포 · **프론트↔Railway 완전 연동**)  
+**최종 갱신:** 2026-05-21 (재사용 가능 로그인 코드 인증 · Railway 배포 완료 · PWA 아이콘 확인)  
 **프론트:** https://stock-tracker-opal-six.vercel.app  
 **백엔드:** https://stock-tracker-production-7e54.up.railway.app  
 **마스터 문서:** [HANDOFF.md](./HANDOFF.md)
@@ -15,122 +15,67 @@
 | O-2 | 프로덕션 스모크 (`npm run qa:prod` **43/43**) | 2026-05-19 |
 | O-3 | 브라우저 수동 QA 7항 | 사용자 |
 | O-4 | 카카오 링크 미리보기 | 사용자 |
+| O-5 | Git 초기화·첫 커밋 (`41363fc`) | 2026-05-20 |
 | O-6 | 문서 동기화 (전체 docs·README·PROJECT) | 2026-05-19 |
 | O-7 | AI 핸드오프 문서 `HANDOFF.md` | 2026-05-19 |
 | DS-0~9 | 디자인 리디자인 (Minimal + Glass Hybrid) | 2026-05-20 |
-| O-5 | Git 초기화·첫 커밋 (`41363fc`) | 2026-05-20 |
-| RW-6 | CORS — `CORS_ORIGINS` 미들웨어 (`server.js`) | 2026-05-20 |
-| — | `railway.json` 생성 후 제거 (CLI 네트워크 이슈로 Docker 방식 전환) | 2026-05-20 |
-| — | `Dockerfile` + `.dockerignore` 생성, 빌드·헬스체크 로컬 검증 완료 | 2026-05-20 |
-| L-6 | `login.html` UI — 1회용 코드 폼 + 이메일/Slack FAB | 2026-05-20 |
 | RW-0 | Railway 프로젝트·서비스 생성 | 2026-05-21 |
-| RW-1 | Dockerfile `backend/` build context 수정·배포 (`COPY . ./`, `node server.js`) | 2026-05-21 |
+| RW-1 | Dockerfile `backend/` build context 수정·배포 | 2026-05-21 |
 | RW-2 | Railway 환경변수 `FINNHUB_API_KEY`, `SESSION_SECRET`, `ADMIN_SECRET` | 2026-05-21 |
 | RW-3 | `/api/health` → `{"ok":true,"wsSupported":true}` | 2026-05-21 |
 | RW-4 | 공개 URL `stock-tracker-production-7e54.up.railway.app` | 2026-05-21 |
-| RW-9 | Railway Postgres `DATABASE_URL` 참조변수 연결 + 마이그레이션 자동 실행 | 2026-05-21 |
-| — | `backend/package-lock.json` `file:..` symlink 제거 (isolated 재생성) | 2026-05-21 |
-| — | `backend/.dockerignore` 추가 (`.env`, `node_modules` 제외) | 2026-05-21 |
-| RW-5 | Vercel rewrite `/api/*`→Railway + WS_PATH Railway WSS + `api/[[...slug]].js` 삭제 | 2026-05-21 |
-| L-0 | Docker PostgreSQL 5433 + `DATABASE_URL` 설정 (로컬 5432 충돌 회피) | 2026-05-21 |
-| L-1 | DB 마이그레이션: `users` · `login_codes` · `sessions` (001_auth.sql) | 2026-05-21 |
-| L-2 | `POST /api/auth/login` — DB 로그인 코드 조회(재사용 가능, 만료만 검사) + env fallback | 2026-05-21 |
+| RW-5 | Vercel rewrite `/api/*`→Railway + WS_PATH Railway WSS | 2026-05-21 |
+| RW-6 | CORS — Vercel origin 허용 | 2026-05-20 |
+| RW-9 | Railway Postgres `DATABASE_URL` + 자동 마이그레이션 | 2026-05-21 |
+| L-0 | Docker PostgreSQL 5433 + `DATABASE_URL` 설정 | 2026-05-21 |
+| L-1 | `users` · `login_codes` · `sessions` 스키마 (001_auth.sql) | 2026-05-21 |
+| L-2 | `POST /api/auth/login` — DB 로그인 코드 조회(재사용 가능) + env fallback | 2026-05-21 |
 | L-3 | `GET /api/auth/me` + `POST /api/auth/logout` — DB 세션 검증·삭제 | 2026-05-21 |
-| L-5 | 1회용 코드 생성 CLI (`backend/gen-code.js`, `npm run db:gen-code`) | 2026-05-21 |
-| L-6+ | SPA 인증 가드 (`app.js init()`) + 헤더 로그아웃 버튼 (`index.html`) | 2026-05-21 |
-| — | 수익화·법적 고지 문서 (`MONETIZATION`, `LEGAL-DISCLAIMER`) | 2026-05-19 |
-| — | Vercel API 라우팅 (`api/[[...slug]].js`) | 2026-05-19 |
-| — | OG 메타·`og-image.png` | 2026-05-19 |
-| — | PWA assets (`fix:pwa`, screenshots, 192/512 PNG) | 2026-05-19 |
+| L-5 | 로그인 코드 생성 CLI (`backend/gen-code.js`, `npm run db:gen-code`) | 2026-05-21 |
+| L-6 | SPA 인증 가드 (`app.js init()`) + 헤더 로그아웃 버튼 | 2026-05-21 |
+| L-9 | `.env.example` 갱신 (`AUTH_CODE`, `SESSION_SECRET`, `DATABASE_URL`) | 2026-05-21 |
 | D-1 | SW 캐시 **`stockpulse-v4`** | 2026-05-19 |
 | D-2 | PWA 아이콘 512 PNG + manifest | 2026-05-19 |
+| D-2b | PWA 설치·바탕화면 아이콘 최종 확인 | 사용자 확인 |
+| D-4 | `og-image.png` / `icon-512.png` 용량 최적화 | 2026-05-19 |
 | D-5 | `icon-192.png` (Chrome 설치 조건) | 2026-05-19 |
 | UI-1 | 관심목록 카드: **종목명 위 / 코드 아래** | 2026-05-19 |
+| — | OG 메타·`og-image.png` | 2026-05-19 |
+| — | PWA assets (`fix:pwa`, screenshots, 192/512 PNG) | 2026-05-19 |
+| — | 수익화·법적 고지 문서 (`MONETIZATION`, `LEGAL-DISCLAIMER`) | 2026-05-19 |
 
 ---
 
-## 1순위 — Railway 백엔드 배포 ✅ 완료
-
-**URL:** https://stock-tracker-production-7e54.up.railway.app
+## 1순위 — 디자인 마무리 (Minimal + Glass Hybrid)
 
 | ID | 타스크 | 상태 |
 |----|--------|------|
-| RW-0 | Railway 프로젝트·서비스 생성 | ✅ 2026-05-21 |
-| RW-1 | Dockerfile 작성·빌드 (`backend/` build context, `COPY . ./`) | ✅ 2026-05-21 |
-| RW-2 | 환경변수 `FINNHUB_API_KEY`, `SESSION_SECRET`, `ADMIN_SECRET` | ✅ 2026-05-21 |
-| RW-3 | 배포 후 `/api/health` → `wsSupported: true` | ✅ 2026-05-21 |
-| RW-4 | 공개 HTTPS URL `stock-tracker-production-7e54.up.railway.app` | ✅ 2026-05-21 |
-| RW-6 | CORS — Vercel origin 허용 | ✅ 2026-05-20 |
-| RW-9 | Railway Postgres `DATABASE_URL` + 자동 마이그레이션 | ✅ 2026-05-21 |
-| RW-5 | 프론트 Vercel rewrite `/api/*`→Railway + WS_PATH Railway WSS 직접 연결 | ✅ 2026-05-21 |
-| RW-7 | `qa:prod` / `QA_API_BASE` Railway API 검사 | ⬜ |
-| RW-8 | Vercel API 유지 vs Railway 전용 역할 문서화 | ✅ Railway 전용 (Vercel은 프론트 only) |
-
-**달성:** US 주식 **WebSocket 실시간** 활성화 — Vercel(프론트) ↔ Railway(백엔드+DB) 완전 연동.
+| DS-10 | 디자인 QA·PWA 스크린샷 갱신 (`npm run fix:pwa` 후 Vercel 재배포) | ⬜ |
 
 ---
 
-## 1-B순위 — 디자인 (Minimal + Glass Hybrid)
-
-> 기획: [DESIGN-SYSTEM.md](./DESIGN-SYSTEM.md) — 2025~26 SaaS/핀테크 · Apple/Linear/Stripe 톤 · **현재 구조 유지**
+## 2순위 — Vercel·PWA
 
 | ID | 타스크 | 상태 |
 |----|--------|------|
-| DS-0 | 디자인 토큰 (`:root` 컬러·glass·shadow·spacing) | ✅ 2026-05-20 |
-| DS-1 | 배경 dark + subtle gradient, glow/grid 축소 | ✅ 2026-05-20 |
-| DS-2 | Glass: **카드·모달·floating panel만** (blur 12~16px, 저불투명) | ✅ 2026-05-20 |
-| DS-3 | Typography hierarchy (가격·종목명·심볼·섹션) | ✅ 2026-05-20 |
-| DS-4 | Button·Input flat + soft glass | ✅ 2026-05-20 |
-| DS-5 | IA 개선: 헤더·툴바·모달 정보 구조 재배치 | ✅ 2026-05-20 |
-| DS-6 | 시각 우선순위 (등락·가격 1순위, whitespace 확대) | ✅ 2026-05-20 |
-| DS-7 | Light 테마 glass 톤 정합 | ✅ 2026-05-20 |
-| DS-8 | 모바일 반응형·모달 UX | ✅ 2026-05-20 |
-| DS-9 | `prefers-reduced-motion` · blur 미지원 폴백 | ✅ 2026-05-20 |
-| DS-10 | 디자인 QA·스크린샷 갱신 (`fix:pwa`) | ⬜ `npm run fix:pwa` 실행 필요 |
-
-**피할 것:** 전체 glass, 강 blur, 네온/사이버펑크, 과한 gradient, Dribbble 컨셉풍
+| D-3 | 배포 후 Vercel Functions 로그 점검 (429·타임아웃) | ⬜ |
 
 ---
 
-## 2순위 — 운영·배포
-
-| ID | 타스크 | 상태 | 담당 |
-|----|--------|------|------|
-| O-5 | Git 초기화·첫 커밋 | ✅ 2026-05-20 |
-
----
-
-## 3순위 — Vercel·PWA
-
-| ID | 타스크 | 상태 |
-|----|--------|------|
-| D-2b | PWA 설치·바탕화면 아이콘 최종 확인 | ⬜ | [PWA-INSTALL.md](./PWA-INSTALL.md) (manifest 변경 시 재설치) |
-| D-3 | 배포 후 Functions 로그 점검 | ⬜ |
-| D-4 | `og-image.png` / `icon-512.png` / screenshots 용량 최적화 | ✅ 허용 범위 (icon-192: 28KB, icon-512: 196KB, og-image: 120KB, desktop-wide: 115KB) |
-
----
-
-## 4순위 — MVP 로그인·DB (재사용 가능 로그인 코드)
+## 3순위 — MVP 로그인·DB (재사용 가능 로그인 코드)
 
 > 기획: [AUTH-MVP.md](./AUTH-MVP.md) — 코드 입력만 로그인, **관심종목 서버 저장**
 
 | ID | 타스크 | 상태 |
 |----|--------|------|
-| L-0 | Docker PostgreSQL 5433 + `DATABASE_URL` 설정 | ✅ 2026-05-21 |
-| L-1 | `users` · `login_codes` · `sessions` 스키마 (001_auth.sql) | ✅ 2026-05-21 |
-| L-2 | `POST /api/auth/login` — DB 코드 조회 + env fallback | ✅ 2026-05-21 |
-| L-3 | `GET /api/auth/me` + `POST /api/auth/logout` | ✅ 2026-05-21 |
 | L-4 | `GET/PUT/POST/DELETE /api/watchlist` | ⬜ DB 연결 완료, 구현 대기 |
-| L-5 | 1회용 코드 생성 CLI (`gen-code.js`, `npm run db:gen-code`) | ✅ 2026-05-21 |
-| L-6 | SPA 인증 가드 (`app.js`) + 로그아웃 버튼 (`index.html`) | ✅ 2026-05-21 |
 | L-7 | 관심종목 추가/삭제 → 서버 동기화 (`app.js`) | ⬜ L-4 완료 후 |
 | L-8 | 로그인 시 서버↔localStorage 병합 정책·QA | ⬜ |
-| L-9 | `.env.example` 갱신 (`AUTH_CODE`, `SESSION_SECRET`, `DATABASE_URL`) | ✅ 2026-05-21 |
 | L-10 | (선택) 포트폴리오·알림 DB 확장 | ⬜ |
 
 ---
 
-## 5순위 — AI 종목 브리핑 (관심종목 클릭 · 시간대별)
+## 4순위 — AI 종목 브리핑 (관심종목 클릭 · 시간대별)
 
 > 기획: [AI-BRIEFING.md](./AI-BRIEFING.md) — 장전(전일) · **12시 이후** 오전장 · 장마감 후(당일)
 
@@ -148,7 +93,7 @@
 
 ---
 
-## 6순위 — 한국 시장 심화
+## 5순위 — 한국 시장 심화
 
 | ID | 타스크 | 상태 |
 |----|--------|------|
@@ -161,7 +106,7 @@
 
 ---
 
-## 7순위 — 미국 매크로·경제 뉴스 (Bloomberg 등)
+## 6순위 — 미국 매크로·경제 뉴스 (Bloomberg 등)
 
 > 기획: [NEWS-FEED.md](./NEWS-FEED.md) — **블룸버그 HTML 스크랩은 비권장**, RSS·Finnhub·원문 링크 중심
 
@@ -177,7 +122,7 @@
 
 ---
 
-## 8순위 — 품질
+## 7순위 — 품질
 
 | ID | 타스크 | 상태 |
 |----|--------|------|
@@ -186,7 +131,7 @@
 
 ---
 
-## 9순위 — 수익화 (빠른 순)
+## 8순위 — 수익화 (빠른 순)
 
 상세: [MONETIZATION.md](./MONETIZATION.md) · 고지: [LEGAL-DISCLAIMER.md](./LEGAL-DISCLAIMER.md)
 
