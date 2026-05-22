@@ -100,40 +100,53 @@
     <!-- 팝업 패널 -->
     <div class="request-panel" id="requestPanel" aria-hidden="true">
       <p class="request-panel-title">접속 코드 요청</p>
-      <p class="request-panel-desc">관리자에게 1회용 로그인 코드를 요청합니다.</p>
-      <div class="request-panel-actions">
-        <a
-          class="request-action-btn"
-          id="emailRequestBtn"
-          href="mailto:devswseong@gmail.com?subject=StockPulse%20%EC%A0%91%EC%86%8D%20%EC%BD%94%EB%93%9C%20%EC%9A%94%EC%B2%AD&body=%EC%95%88%EB%85%95%ED%95%98%EC%84%B8%EC%9A%94%2C%20StockPulse%20%EC%A0%91%EC%86%8D%20%EC%BD%94%EB%93%9C%EB%A5%BC%20%EC%9A%94%EC%B2%AD%ED%95%A9%EB%8B%88%EB%8B%A4."
-          target="_blank"
-          rel="noopener"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
-            <polyline points="2,4 12,13 22,4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+
+      <!-- 기본 폼 뷰 -->
+      <div id="reqFormView">
+        <p class="request-panel-desc">이메일을 입력하고 수신 방법을 선택하세요.</p>
+        <input
+          id="reqEmail"
+          type="email"
+          class="req-email-input"
+          placeholder="your@email.com"
+          autocomplete="email"
+          spellcheck="false"
+        />
+        <div class="req-delivery-btns">
+          <button type="button" class="req-delivery-btn" data-delivery="email">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
+              <polyline points="2,4 12,13 22,4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+            이메일로 받기
+          </button>
+          <button type="button" class="req-delivery-btn" data-delivery="instant">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <polygon points="13,2 3,14 12,14 11,22 21,10 12,10" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"/>
+            </svg>
+            즉시 받기
+          </button>
+        </div>
+        <p id="reqError" class="req-error hidden"></p>
+      </div>
+
+      <!-- 이메일 전송 완료 뷰 -->
+      <div id="reqEmailDoneView" class="hidden">
+        <p class="req-done-msg">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;margin-right:6px;">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+            <polyline points="8,12 11,15 16,9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          이메일로 요청
-        </a>
-        <a
-          class="request-action-btn"
-          id="slackRequestBtn"
-          href="https://slack.com/app_redirect?channel=stockpulse-access"
-          target="_blank"
-          rel="noopener"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path d="M14.5 10c-.83 0-1.5-.67-1.5-1.5v-5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5z" fill="currentColor"/>
-            <path d="M20.5 10H19V8.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" fill="currentColor"/>
-            <path d="M9.5 14c.83 0 1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5S8 21.33 8 20.5v-5c0-.83.67-1.5 1.5-1.5z" fill="currentColor"/>
-            <path d="M3.5 14H5v1.5c0 .83-.67 1.5-1.5 1.5S2 16.33 2 15.5 2.67 14 3.5 14z" fill="currentColor"/>
-            <path d="M14 14.5c0-.83.67-1.5 1.5-1.5h5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-5c-.83 0-1.5-.67-1.5-1.5z" fill="currentColor"/>
-            <path d="M15.5 19H14v1.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5-.67-1.5-1.5-1.5z" fill="currentColor"/>
-            <path d="M10 9.5C10 8.67 9.33 8 8.5 8h-5C2.67 8 2 8.67 2 9.5S2.67 11 3.5 11h5c.83 0 1.5-.67 1.5-1.5z" fill="currentColor"/>
-            <path d="M8.5 5H10V3.5C10 2.67 9.33 2 8.5 2S7 2.67 7 3.5 7.67 5 8.5 5z" fill="currentColor"/>
-          </svg>
-          Slack으로 요청
-        </a>
+          요청이 전달됐습니다.<br/>이메일을 확인해주세요.
+        </p>
+        <button type="button" class="req-cancel-btn" id="reqEmailResetBtn">다시 요청</button>
+      </div>
+
+      <!-- 즉시 수신 대기 뷰 -->
+      <div id="reqWaitView" class="hidden">
+        <p class="req-wait-msg">관리자가 확인 중입니다…</p>
+        <p id="reqCountdown" class="req-countdown">30:00</p>
+        <button type="button" class="req-cancel-btn" id="reqCancelBtn">취소</button>
       </div>
     </div>
 
@@ -176,6 +189,126 @@
 
     // 패널 초기 hidden
     panel.classList.add('hidden');
+
+    /* ── 코드 요청 폼 ── */
+    function switchReqView(view) {
+      document.getElementById('reqFormView').classList.toggle('hidden', view !== 'form');
+      document.getElementById('reqEmailDoneView').classList.toggle('hidden', view !== 'emailDone');
+      document.getElementById('reqWaitView').classList.toggle('hidden', view !== 'wait');
+    }
+
+    function showReqError(msg) {
+      const el = document.getElementById('reqError');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    // 전달 방식 버튼
+    document.querySelectorAll('.req-delivery-btn').forEach((btn) => {
+      btn.addEventListener('click', () => submitRequest(btn.dataset.delivery));
+    });
+
+    // 이메일 입력창 엔터키
+    document.getElementById('reqEmail').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitRequest('email');
+    });
+
+    async function submitRequest(delivery) {
+      const emailEl = document.getElementById('reqEmail');
+      const email = emailEl.value.trim();
+      if (!email || !email.includes('@')) {
+        showReqError('올바른 이메일을 입력해주세요.');
+        emailEl.focus();
+        return;
+      }
+      document.getElementById('reqError').classList.add('hidden');
+
+      // 버튼 비활성화
+      document.querySelectorAll('.req-delivery-btn').forEach(b => b.disabled = true);
+
+      try {
+        const res = await fetch('/api/access-requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, delivery }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'request_failed');
+
+        if (delivery === 'email') {
+          switchReqView('emailDone');
+        } else {
+          switchReqView('wait');
+          startPolling(data.token);
+        }
+      } catch (err) {
+        showReqError('요청 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+        document.querySelectorAll('.req-delivery-btn').forEach(b => b.disabled = false);
+      }
+    }
+
+    // 다시 요청 버튼
+    document.getElementById('reqEmailResetBtn').addEventListener('click', () => {
+      document.getElementById('reqEmail').value = '';
+      document.getElementById('reqError').classList.add('hidden');
+      document.querySelectorAll('.req-delivery-btn').forEach(b => b.disabled = false);
+      switchReqView('form');
+    });
+
+    // 취소 버튼
+    document.getElementById('reqCancelBtn').addEventListener('click', () => {
+      stopPolling();
+      document.getElementById('reqEmail').value = '';
+      document.querySelectorAll('.req-delivery-btn').forEach(b => b.disabled = false);
+      switchReqView('form');
+    });
+
+    /* ── 폴링 ── */
+    let _pollTimer = null;
+    let _pollExpiry = null;
+    let _countdownTimer = null;
+
+    function startPolling(token) {
+      _pollExpiry = Date.now() + 30 * 60 * 1000;
+      updateCountdown();
+      _countdownTimer = setInterval(updateCountdown, 1000);
+      _pollTimer = setInterval(async () => {
+        if (Date.now() > _pollExpiry) { stopPolling(); switchReqView('form'); showReqError('요청이 만료됐습니다. 다시 시도해주세요.'); return; }
+        try {
+          const res = await fetch(`/api/access-requests/${token}/status`);
+          const data = await res.json();
+          if (data.status === 'approved') {
+            stopPolling();
+            document.getElementById('codeInput').value = data.code;
+            togglePanel(false);
+            // 코드 도착 안내 (간단 인라인 메시지)
+            const errEl = document.getElementById('loginError');
+            errEl.textContent = '코드가 자동 입력됐습니다. 로그인 버튼을 눌러주세요.';
+            errEl.style.color = 'var(--accent)';
+            errEl.classList.remove('hidden');
+            document.getElementById('codeInput').focus();
+          } else if (data.status === 'expired') {
+            stopPolling();
+            switchReqView('form');
+            showReqError('요청이 만료됐습니다. 다시 시도해주세요.');
+          }
+        } catch { /* 네트워크 오류 무시 */ }
+      }, 5000);
+    }
+
+    function stopPolling() {
+      clearInterval(_pollTimer);
+      clearInterval(_countdownTimer);
+      _pollTimer = null;
+    }
+
+    function updateCountdown() {
+      const remaining = Math.max(0, _pollExpiry - Date.now());
+      const m = String(Math.floor(remaining / 60000)).padStart(2, '0');
+      const s = String(Math.floor((remaining % 60000) / 1000)).padStart(2, '0');
+      const el = document.getElementById('reqCountdown');
+      if (el) el.textContent = `${m}:${s}`;
+    }
 
     /* ── 로그인 폼 ── */
     const form    = document.getElementById('loginForm');

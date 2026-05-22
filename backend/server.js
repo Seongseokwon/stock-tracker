@@ -11,11 +11,16 @@ if (!process.env.VERCEL) {
 }
 const express = require('express');
 const { WebSocketServer, WebSocket } = require('ws');
+const nodemailer = require('nodemailer');
 
 const PORT = process.env.PORT || 3000;
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-me';
 const ADMIN_SECRET   = process.env.ADMIN_SECRET || '';
+const SLACK_WEBHOOK_URL  = process.env.SLACK_WEBHOOK_URL  || '';
+const GMAIL_USER         = process.env.GMAIL_USER         || '';
+const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD || '';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://stock-tracker-production-7e54.up.railway.app';
 // 쉼표로 구분된 여러 코드 지원: "SP-DEMO-0000,SP-USER-0001"
 const AUTH_CODES = (process.env.AUTH_CODE || '')
   .split(',')
@@ -208,6 +213,30 @@ function parseCookies(req) {
       .filter(([k]) => k)
       .map(([k, ...v]) => [k.trim(), v.join('=').trim()])
   );
+}
+
+/* --- 알림 유틸 --- */
+// Slack Incoming Webhook 알림
+async function sendSlackNotification(text) {
+  if (!SLACK_WEBHOOK_URL) return;
+  try {
+    await fetch(SLACK_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+  } catch (e) {
+    console.error('[slack]', e.message);
+  }
+}
+
+// Gmail SMTP 메일러 (lazy init — 환경변수 없으면 null)
+function getMailer() {
+  if (!GMAIL_USER || !GMAIL_APP_PASSWORD) return null;
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
+  });
 }
 
 /* --- Auth routes --- */
@@ -492,6 +521,168 @@ app.post('/api/admin/codes', async (req, res) => {
       return res.status(409).json({ error: 'code_already_exists', code });
     }
     console.error('[admin/codes]', err.message);
+    res.status(500).json({ error: 'internal_error' });
+  }
+});
+
+/* --- 코드 요청 시스템 --- */
+
+// POST /api/access-requests — 사용자가 코드 요청 접수
+app.post('/api/access-requests', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const { email, delivery } = req.body || {};
+
+  if (!email || typeof email !== 'string' || !email.includes('@')) {
+    return res.status(400).json({ error: 'invalid_email' });
+  }
+  if (!['email', 'instant'].includes(delivery)) {
+    return res.status(400).json({ error: 'invalid_delivery' });
+  }
+  if (!db.pool) {
+    return res.status(503).json({ error: 'database_not_available' });
+  }
+
+  const requestToken = crypto.randomBytes(16).toString('hex');
+
+  try {
+    await db.query(
+      `INSERT INTO access_requests (email, delivery, request_token)
+       VALUES ($1, $2, $3)`,
+      [email.trim().toLowerCase(), delivery, requestToken]
+    );
+  } catch (err) {
+    console.error('[access-requests POST]', err.message);
+    return res.status(500).json({ error: 'internal_error' });
+  }
+
+  // Slack 알림 (비동기 — 실패해도 응답 영향 없음)
+  const approveCmd =
+    `curl -s -X POST ${BACKEND_URL}/api/admin/approve-request ` +
+    `-H "Content-Type: application/json" ` +
+    `-d '{"requestToken":"${requestToken}","adminSecret":"${ADMIN_SECRET}"}'`;
+  sendSlackNotification(
+    `🔔 *새 로그인 코드 요청*\n` +
+    `이메일: ${email}\n수신 방식: ${delivery === 'email' ? '📧 이메일' : '⚡ 즉시'}\n\n` +
+    `승인 명령:\n\`\`\`\n${approveCmd}\n\`\`\``
+  );
+
+  res.json({ ok: true, token: delivery === 'instant' ? requestToken : null });
+});
+
+// GET /api/access-requests/:token/status — 즉시 수신 폴링
+app.get('/api/access-requests/:token/status', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  if (!db.pool) return res.status(503).json({ error: 'database_not_available' });
+
+  try {
+    const { rows } = await db.query(
+      `SELECT status, plain_code, expires_at
+       FROM access_requests WHERE request_token = $1 LIMIT 1`,
+      [req.params.token]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'not_found' });
+
+    const r = rows[0];
+
+    // 만료 체크
+    if (new Date(r.expires_at) < new Date()) {
+      await db.query(
+        `UPDATE access_requests SET status='expired' WHERE request_token=$1`,
+        [req.params.token]
+      ).catch(() => {});
+      return res.json({ status: 'expired' });
+    }
+
+    // 승인됨 + 코드 대기 중 → 1회 전달 후 삭제
+    if (r.status === 'approved' && r.plain_code) {
+      await db.query(
+        `UPDATE access_requests SET status='sent', plain_code=NULL WHERE request_token=$1`,
+        [req.params.token]
+      ).catch(() => {});
+      return res.json({ status: 'approved', code: r.plain_code });
+    }
+
+    res.json({ status: r.status });
+  } catch (err) {
+    console.error('[access-requests status]', err.message);
+    res.status(500).json({ error: 'internal_error' });
+  }
+});
+
+// POST /api/admin/approve-request — 관리자가 요청 승인 (코드 생성 + 이메일 발송 또는 즉시 전달)
+app.post('/api/admin/approve-request', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const { requestToken, adminSecret, code: customCode } = req.body || {};
+
+  const provided = req.headers['x-admin-secret'] || adminSecret;
+  if (!ADMIN_SECRET || provided !== ADMIN_SECRET) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+  if (!db.pool) return res.status(503).json({ error: 'database_not_available' });
+
+  try {
+    const { rows } = await db.query(
+      `SELECT id, email, delivery FROM access_requests
+       WHERE request_token=$1 AND status='pending' AND expires_at > NOW() LIMIT 1`,
+      [requestToken]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'request_not_found' });
+
+    const { id: reqId, email, delivery } = rows[0];
+
+    // 코드 생성
+    const plainCode = customCode
+      ? customCode.toUpperCase().trim()
+      : `SP-${crypto.randomBytes(4).toString('hex').toUpperCase().slice(0, 4)}-` +
+        `${crypto.randomBytes(4).toString('hex').toUpperCase().slice(0, 4)}`;
+    const codeHash = crypto.createHash('sha256').update(plainCode).digest('hex');
+
+    const { rows: codeRows } = await db.query(
+      `INSERT INTO login_codes (code_hash, note, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '7 days') RETURNING id`,
+      [codeHash, `access_request:${reqId}`]
+    );
+
+    if (delivery === 'email') {
+      // Gmail SMTP 발송
+      const mailer = getMailer();
+      if (mailer) {
+        await mailer.sendMail({
+          from: `"StockPulse" <${GMAIL_USER}>`,
+          to: email,
+          subject: '[StockPulse] 로그인 코드가 발급됐습니다',
+          text:
+            `안녕하세요!\n\n` +
+            `StockPulse 로그인 코드가 발급됐습니다.\n\n` +
+            `코드: ${plainCode}\n\n` +
+            `유효기간: 7일\n` +
+            `로그인 페이지: https://stock-tracker-opal-six.vercel.app/login.html\n\n` +
+            `본 이메일은 발신 전용입니다.`,
+          html:
+            `<p>안녕하세요!</p>` +
+            `<p>StockPulse 로그인 코드가 발급됐습니다.</p>` +
+            `<p style="font-size:24px;font-weight:bold;letter-spacing:2px;">${plainCode}</p>` +
+            `<p>유효기간: 7일 | ` +
+            `<a href="https://stock-tracker-opal-six.vercel.app/login.html">로그인 페이지</a></p>`,
+        });
+      } else {
+        console.warn('[approve-request] GMAIL_USER/GMAIL_APP_PASSWORD 미설정 — 이메일 발송 생략');
+      }
+      await db.query(
+        `UPDATE access_requests SET status='sent', code_id=$1 WHERE id=$2`,
+        [codeRows[0].id, reqId]
+      );
+      res.json({ ok: true, code: plainCode, delivery: 'email', emailSent: Boolean(mailer) });
+    } else {
+      // instant: plain_code 임시 저장 → 폴링이 가져간 후 NULL 처리
+      await db.query(
+        `UPDATE access_requests SET status='approved', code_id=$1, plain_code=$2 WHERE id=$3`,
+        [codeRows[0].id, plainCode, reqId]
+      );
+      res.json({ ok: true, code: plainCode, delivery: 'instant' });
+    }
+  } catch (err) {
+    console.error('[approve-request]', err.message);
     res.status(500).json({ error: 'internal_error' });
   }
 });

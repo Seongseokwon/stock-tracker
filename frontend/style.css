@@ -2156,6 +2156,112 @@ html[data-theme="light"] .theme-toggle-btn .theme-icon-light { display: inline; 
   border-color: var(--border-hover);
 }
 
+/* ── 코드 요청 폼 ── */
+.req-email-input {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg-main);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  outline: none;
+  box-sizing: border-box;
+  margin-bottom: 10px;
+  transition: border-color 0.15s;
+}
+
+.req-email-input:focus {
+  border-color: var(--accent);
+}
+
+.req-email-input::placeholder {
+  color: var(--text-muted);
+}
+
+.req-delivery-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.req-delivery-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 8px;
+  background: var(--bg-main);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.req-delivery-btn:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.req-delivery-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.req-error {
+  font-size: 0.74rem;
+  color: var(--negative);
+  margin-top: 7px;
+  line-height: 1.4;
+}
+
+.req-done-msg {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  text-align: center;
+  padding: 4px 0 8px;
+}
+
+.req-wait-msg {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.req-countdown {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--accent);
+  text-align: center;
+  letter-spacing: 2px;
+  margin: 6px 0 12px;
+}
+
+.req-cancel-btn {
+  display: block;
+  width: 100%;
+  padding: 7px;
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.req-cancel-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text-secondary);
+}
+
 /* ── 모바일 대응 ── */
 @media (max-width: 480px) {
   .login-card {
