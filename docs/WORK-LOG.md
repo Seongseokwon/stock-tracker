@@ -128,6 +128,61 @@ res.json({ ok: true, ..., emailSent, emailError });
 
 ---
 
+---
+
+#### 8. AI 종목 브리핑 MVP (A-0 ~ A-7)
+
+**목표:** 모달 상단에 규칙 기반 종목 브리핑 표시 (LLM 없음, AdSense 콘텐츠 강화)
+
+**슬롯 규칙 (ET 기준, A-0):**
+
+| 슬롯 | 시간대 (ET) | 요약 내용 |
+|------|------------|---------|
+| `pre_open` | 자정~09:29 | 전일 종가·등락 + 뉴스 헤드라인 |
+| `null` | 09:30~11:59 | 해당 없음 → "오전 브리핑은 12시 이후" 안내 |
+| `midday` | 12:00~15:59 | 오전 흐름 + 뉴스 |
+| `post_close` | 16:00~ (주말 포함) | 당일 종합 |
+
+**구현 범위:**
+
+| 항목 | 내용 |
+|------|------|
+| DB 마이그레이션 | `backend/migrations/004_briefings.sql` — `briefings` 테이블 + UNIQUE(symbol, slot, trading_date) |
+| 새 엔드포인트 | `GET /api/briefing?symbol=&slot=auto` |
+| 규칙 기반 요약 | `buildBriefingSummary()` — Finnhub 시세·뉴스·프로필 조합 → 텍스트 생성 |
+| DB 캐시 | 슬롯·거래일 단위로 `briefings` 테이블 캐시 (`cached: true` 반환) |
+| 프론트 UI (A-4) | 모달 상단 `.modal-briefing` 섹션 — 로딩 → 요약 표시 → 캐시 시각 |
+| 한국 종목 숨김 | `market === 'KR'` 시 섹션 hidden (K-3 이후 보강 예정) |
+| 안내 문구 (A-6) | `slot === null` 시 "오전 브리핑은 12시 이후…" notice 반환 |
+| 면책 문구 (A-7) | 브리핑 본문 하단 면책 고지 자동 포함 |
+
+**API 응답 예시:**
+```json
+{
+  "ok": true,
+  "slot": "post_close",
+  "tradingDate": "2026-05-22",
+  "summary": "AAPL (Apple Inc.) — 2026-05-22 장 마감 요약...",
+  "cached": false
+}
+```
+
+---
+
+#### 9. ERD 문서 자동 생성 (docs/ERD.md)
+
+**목표:** `backend/migrations/*.sql` 변경 시 ERD 문서를 자동 갱신
+
+**구현:**
+
+| 항목 | 내용 |
+|------|------|
+| `scripts/update-erd.mjs` | SQL 파싱(CREATE TABLE/INDEX regex) → Mermaid ER 다이어그램 + 테이블 상세 + 인덱스 목록 생성 |
+| `docs/ERD.md` | 6개 테이블, 9개 인덱스, 마이그레이션 이력 포함 자동 생성 문서 |
+| `.claude/settings.json` | PostToolUse 훅 — `Write\|Edit` 후 `backend/migrations/*.sql` 감지 시 `node scripts/update-erd.mjs` 자동 실행 |
+
+---
+
 ### 커밋 이력 (오늘)
 
 | 해시 | 메시지 |
@@ -152,21 +207,13 @@ res.json({ ok: true, ..., emailSent, emailError });
 
 ---
 
-### 진행 중 / 미결
-
-| 항목 | 상태 |
-|------|------|
-| 이메일 발송 진단 | `emailError` 필드 배포 완료 — 실제 오류 메시지 확인 테스트 필요 |
-
----
-
 ### 다음 작업 후보
 
 | ID | 작업 | 우선순위 |
 |----|------|----------|
-| — | 이메일 발송 진단 완료 (emailError 확인 후 SMTP 설정 수정) | 즉시 |
-| A-0~A-2 | AI 브리핑 MVP (규칙 기반, LLM 없음) — AdSense 콘텐츠 강화 | 높음 |
-| M-5 | Google AdSense 신청 (브리핑 완료 후) | 중간 |
+| M-5a | Google AdSense 계정 신청 + 사이트 등록 | 높음 |
+| M-5b | AdSense 자동 광고 스크립트 삽입 | 높음 |
+| A-3 | Claude / GPT 연동 브리핑 고도화 (AdSense 수익 확보 후) | 낮음 |
 
 ---
 
