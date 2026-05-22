@@ -2179,37 +2179,88 @@ html[data-theme="light"] .theme-toggle-btn .theme-icon-light { display: inline; 
   color: var(--text-muted);
 }
 
-.req-delivery-btns {
+/* Slack 즉시 받기 — 주요 버튼 */
+.req-slack-btn {
   display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 6px;
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  margin-bottom: 7px;
 }
 
-.req-delivery-btn {
-  flex: 1;
+.req-slack-btn:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.req-slack-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.req-slack-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 이메일로 받기 — 보조 버튼 */
+.req-email-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 7px 8px;
-  background: var(--bg-main);
+  width: 100%;
+  padding: 7px 12px;
+  background: transparent;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.76rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition: border-color 0.15s, color 0.15s;
 }
 
-.req-delivery-btn:hover:not(:disabled) {
-  background: var(--bg-card-hover);
-  border-color: var(--accent);
-  color: var(--accent);
+.req-email-btn:hover:not(:disabled) {
+  border-color: var(--border-hover);
+  color: var(--text-secondary);
 }
 
-.req-delivery-btn:disabled {
+.req-email-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* 스피너 */
+.req-spinner-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0 10px;
+}
+
+.req-spinner-svg {
+  animation: req-spin 1.2s linear infinite;
+}
+
+@keyframes req-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.req-wait-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  margin-bottom: 4px;
 }
 
 .req-error {
