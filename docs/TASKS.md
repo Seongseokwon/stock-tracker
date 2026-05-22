@@ -29,6 +29,12 @@
 | D-1~5 | PWA 아이콘·캐시·OG 이미지 | 2026-05-19 |
 | UI-1 | 카드 종목명 위·코드 아래 | 2026-05-19 |
 | BUG-01 | 토스트 알림 z-index 수정 (모달 위에 표시) | 2026-05-22 |
+| BUG-02 | migrate.js 하드코딩 제거 → migrations/ 자동 스캔 | 2026-05-22 |
+| REQ-1 | `backend/migrations/003_access_requests.sql` — 요청 테이블 생성 | 2026-05-22 |
+| REQ-2 | `POST /api/access-requests` — 이메일·방식 수신 + Slack 알림 | 2026-05-22 |
+| REQ-3 | `GET /api/access-requests/:token/status` — 즉시 수신 폴링 | 2026-05-22 |
+| REQ-4 | `POST /api/admin/approve-request` — 관리자 승인 + 코드 생성 + 이메일 발송 | 2026-05-22 |
+| REQ-5 | 프론트 FAB 패널 → 요청 폼 + 대기 UI + 자동 로그인 | 2026-05-22 |
 | — | README.md 개선 (스크린샷·현재 스택) | 2026-05-21 |
 
 </details>

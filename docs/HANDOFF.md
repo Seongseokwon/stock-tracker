@@ -3,7 +3,7 @@
 > **이 파일 하나만 읽어도** 프로젝트의 목적·구조·현황·제약·향후 방향을 파악할 수 있도록 작성했습니다.  
 > 다른 AI·개발자 온보딩용 **마스터 문서**입니다.
 
-**문서 버전:** 2026-05-22 (토스트 z-index 버그 수정 · M-2 법적 고지 · M-3 GA4 스크립트)  
+**문서 버전:** 2026-05-22-B (로그인 코드 요청 시스템 · GA4 실측정 ID · migrate.js 자동 스캔 · 이메일 진단 수정)  
 **프론트 URL:** https://stock-tracker-opal-six.vercel.app  
 **백엔드 URL:** https://stock-tracker-production-7e54.up.railway.app  
 **로컬 실행:** `npm start` → http://localhost:3000  
@@ -53,10 +53,12 @@ stock-tracker/
 ├── backend/
 │   ├── server.js             # Express 앱 export + 로컬 HTTP/WS + CORS 미들웨어
 │   ├── db.js                 # pg Pool (DATABASE_URL 없으면 null)
-│   ├── migrate.js            # 마이그레이션 실행 (npm run db:migrate)
+│   ├── migrate.js            # 마이그레이션 실행 (migrations/ 자동 스캔, npm run db:migrate)
 │   ├── gen-code.js           # 로그인 코드 생성 CLI (재사용 가능, 기본 365일)
 │   ├── migrations/
-│   │   └── 001_auth.sql      # users · login_codes · sessions 테이블
+│   │   ├── 001_auth.sql      # users · login_codes · sessions 테이블
+│   │   ├── 002_watchlist.sql # watchlist_items 테이블 (미구현 L-4)
+│   │   └── 003_access_requests.sql  # access_requests 테이블 (로그인 코드 요청)
 │   ├── kr-search.js          # 한글 로컬 검색 (priority, aliases)
 │   ├── data/kr-stocks.json   # 빌드 스크립트로 생성 (~247종)
 │   ├── .env                  # FINNHUB_API_KEY, DATABASE_URL (git 제외)
@@ -153,6 +155,9 @@ stock-tracker/
 | GET | `/api/auth/me` | ✅ | — | 쿠키·DB 세션 검증 → `{ loggedIn, uid }` |
 | POST | `/api/auth/logout` | ✅ | — | DB 세션 삭제 + 쿠키 만료 |
 | POST | `/api/admin/codes` | ✅ | — | `x-admin-secret` 인증 → 코드 생성 → `{ code, expiresAt }` 반환 |
+| POST | `/api/access-requests` | ✅ | — | 이메일·방식 수신 → DB 저장 + Slack 알림 → `{ ok, token? }` |
+| GET | `/api/access-requests/:token/status` | ✅ | — | 즉시 수신 폴링 → `{ status }` 또는 `{ status:'approved', code }` (1회 전달 후 NULL) |
+| POST | `/api/admin/approve-request` | ✅ | — | 관리자 승인 + 코드 생성 → 이메일 발송(email/instant 모두) 또는 plain_code DB 저장 |
 | GET/PUT | `/api/watchlist` | *(미구현 L-4)* | — | 로그인 사용자 관심종목 (DB 필요) |
 | GET | `/api/metrics?symbol=` | Finnhub | `null` | |
 | WS | `/ws` | Finnhub 프록시 | 미지원 | 로컬만 |
@@ -246,6 +251,11 @@ stock-tracker/
 | **RW-6** CORS `CORS_ORIGINS` 미들웨어 | ✅ 2026-05-21 |
 | **RW-9** Railway Postgres 연결 (`DATABASE_URL`) | ✅ 2026-05-21 |
 | **RW-5** Vercel rewrite + WS_PATH Railway 연동 | ✅ 2026-05-21 |
+| M-3b GA4 측정 ID 교체 (`G-KMCM3VCKN6`) | ✅ 2026-05-22 |
+| BUG-01 토스트 z-index 수정 (1100) | ✅ 2026-05-22 |
+| BUG-02 migrate.js 자동 스캔 | ✅ 2026-05-22 |
+| REQ-1~5 로그인 코드 요청 시스템 (Slack + 이메일/즉시) | ✅ 2026-05-22 |
+| 이메일 발송 진단 (`emailError` 응답 포함, 실 테스트 필요) | 🔄 2026-05-22 |
 
 ```bash
 npm run install:all
@@ -298,6 +308,8 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 | DEPLOY-05 | `backend/package-lock.json`에 `file:..` symlink 참조 → Docker 빌드 오류 | isolated dir에서 `npm install` 재생성 |
 | UI | 모달 헤더에 가림 | `z-index`, `ensureModalOnBody()` |
 | BUG-01 | 토스트 알림이 모달 뒤에 가려짐 | `.toast-container` z-index 300 → 1100 (`frontend/style.css`) |
+| BUG-02 | `migrate.js` 파일 목록 하드코딩 → 003 마이그레이션 미실행 | `fs.readdirSync('migrations/')` 자동 스캔으로 교체 |
+| BUG-03 | `emailSent: Boolean(mailer)` 오진 — 발송 실패해도 `true` 반환 | `await mailer.sendMail()` try/catch + `emailError` 필드 응답 포함 |
 | UI | 배당률 % 표시 오류 | `formatFinnhubPercent` |
 | PWA | icon 크기·스크린샷 | 512×512 PNG, wide/narrow screenshots |
 
@@ -380,7 +392,29 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 - DB 없거나 오류 시 `AUTH_CODE` 환경변수로 fallback (하위호환)
 - Vercel은 DATABASE_URL 없으므로 env 모드 동작
 
-**Slack 링크 수정 필요:** `#slackRequestBtn` href를 실제 워크스페이스 채널로 교체
+**로그인 코드 요청 시스템 (REQ-1~5 완료):**
+
+사용자가 로그인 코드를 직접 발급받을 수 있는 셀프서비스 흐름. `access_requests` 테이블 기반.
+
+| 방식 | 흐름 |
+|------|------|
+| 이메일 수신 | 이메일 입력 → Slack 관리자 알림 → 관리자 curl 승인 → Gmail SMTP 발송 |
+| 즉시 수신 | 이메일 입력 → Slack 알림 → 브라우저 5초 폴링 → 승인 시 코드 즉시 수신 + 자동 로그인 |
+
+즉시 수신도 동시에 이메일 발송하여 코드를 영구 보존.
+
+**관리자 승인 명령 (Slack 알림에 포함):**
+```bash
+curl -X POST https://stock-tracker-production-7e54.up.railway.app/api/admin/approve-request \
+  -H "Content-Type: application/json" \
+  -d '{"requestToken":"<token>","adminSecret":"<ADMIN_SECRET>"}'
+```
+
+**Railway 환경변수 (추가 필요):**
+- `SLACK_WEBHOOK_URL` — Slack Incoming Webhook URL
+- `GMAIL_USER` — Gmail 발신 계정 (devswseong@gmail.com)
+- `GMAIL_APP_PASSWORD` — Gmail 앱 비밀번호 (16자리)
+- `BACKEND_URL` — `https://stock-tracker-production-7e54.up.railway.app` (Slack 알림 curl 명령에 사용)
 
 ### 11.5 5순위 — AI 종목 브리핑 (관심종목 클릭)
 
@@ -488,7 +522,11 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 | `AUTH_CODE` | `backend/.env` / Vercel Env | fallback 인증 코드 (쉼표 구분 다중 지원, 대소문자 무시) |
 | `SESSION_SECRET` | `backend/.env` / Vercel Env | 세션 쿠키 HMAC 서명 비밀키 (기본값: `dev-secret-change-me`) |
 | `DATABASE_URL` | `backend/.env` | PostgreSQL 연결 URL (없으면 env 모드). 예: `postgresql://stockpulse:localdev@127.0.0.1:5433/stockpulse` |
-| `ADMIN_SECRET` | `backend/.env` | 관리자 API 키 — `POST /api/admin/codes` 헤더 `x-admin-secret` 값 |
+| `ADMIN_SECRET` | `backend/.env` | 관리자 API 키 — `POST /api/admin/codes` 헤더 `x-admin-secret` 값 + `/api/admin/approve-request` |
+| `SLACK_WEBHOOK_URL` | `backend/.env` / Railway Env | 코드 요청 알림 — Slack Incoming Webhook URL (없으면 알림 생략) |
+| `GMAIL_USER` | `backend/.env` / Railway Env | Gmail 발신 계정 — nodemailer SMTP 인증 (없으면 이메일 발송 생략) |
+| `GMAIL_APP_PASSWORD` | `backend/.env` / Railway Env | Gmail 앱 비밀번호 16자리 (2단계 인증 필수) |
+| `BACKEND_URL` | `backend/.env` / Railway Env | 백엔드 공개 URL — Slack 알림 내 curl 명령에 삽입 |
 
 ---
 
@@ -540,6 +578,10 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 | DB auth: 환경변수 fallback 유지 | Vercel(DB 없음) + 기존 env 코드 하위호환 동시 지원 |
 | Railway Dockerfile build context | 서비스 루트 = `backend/` → `COPY . ./` + `node server.js` (서브디렉터리 참조 금지) |
 | Railway `package-lock.json` 격리 생성 | `npm install` 부모 디렉터리 참조 오염 방지 → isolated tmp dir에서 생성 |
+| migrate.js 자동 스캔 | 파일 목록 하드코딩 → `fs.readdirSync` 자동 스캔. 신규 마이그레이션 추가 시 별도 수정 불필요 |
+| 즉시 수신도 이메일 동시 발송 | 코드가 1회 폴링 후 DB에서 삭제되므로, 재로그인 수단 보존을 위해 instant도 이메일 발송 |
+| Slack Incoming Webhook | 사용자에게 Slack 계정 불필요 — 관리자 채널에만 Webhook 설정. Node 18+ 내장 fetch 사용 |
+| nodemailer 선택 | 별도 SMTP 서비스 불필요, Gmail 앱 비밀번호 기반 무료 발송. Railway IP 차단 시 SendGrid 등으로 교체 가능 |
 
 ---
 

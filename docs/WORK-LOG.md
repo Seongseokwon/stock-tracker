@@ -21,11 +21,125 @@
 
 ---
 
+#### 2. GA4 실 측정 ID 교체 (M-3b)
+
+Google Analytics 4 콘솔에서 측정 ID(`G-KMCM3VCKN6`) 발급 후, 전체 HTML 4곳의 `G-XXXXXXXXXX` 플레이스홀더를 실제 ID로 교체.
+
+| 파일 | 교체 위치 |
+|------|----------|
+| `frontend/index.html` | `<script async src="gtag.js?id=G-KMCM3VCKN6">` |
+| `frontend/login.html` | 동일 |
+| `frontend/disclaimer.html` | 동일 |
+| `frontend/privacy.html` | 동일 |
+
+---
+
+#### 3. 로그인 코드 요청 시스템 구현 (REQ-1~5)
+
+**목표:** 사용자가 이메일을 입력하고 방식 선택 → 관리자 Slack 알림 → 코드 자동 발송
+
+**구현 범위:**
+
+| 항목 | 내용 |
+|------|------|
+| DB 마이그레이션 | `backend/migrations/003_access_requests.sql` — `access_requests` 테이블 추가 |
+| 신규 엔드포인트 3개 | `POST /api/access-requests`, `GET /api/access-requests/:token/status`, `POST /api/admin/approve-request` |
+| Slack Webhook | `sendSlackNotification()` — 요청 수신 시 승인 curl 명령 포함 알림 발송 |
+| Gmail SMTP | nodemailer `getMailer()` — 코드 생성 시 이메일 자동 발송 |
+| 프론트 FAB 패널 교체 | "Slack으로 즉시 받기" + "이메일로 받기" 두 버튼 + 대기 UI (SVG 스피너·카운트다운) |
+| 신규 환경변수 | `SLACK_WEBHOOK_URL`, `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `BACKEND_URL` |
+
+**Flow A (이메일):**
+```
+사용자 이메일 입력 → POST /api/access-requests { delivery:'email' }
+→ DB 행 생성 + Slack 알림 → 관리자 curl 승인
+→ nodemailer Gmail SMTP → 사용자 이메일로 코드 발송
+```
+
+**Flow B (즉시):**
+```
+사용자 이메일 입력 → POST /api/access-requests { delivery:'instant' }
+→ DB 행 생성 + Slack 알림 → 대기 UI + 5초 폴링 시작
+→ 관리자 curl 승인 → 코드 DB 저장 + 이메일 동시 발송
+→ 다음 폴링 응답 { status:'approved', code:'SP-XXXX-XXXX' }
+→ autoLogin(code) → 자동 로그인 + 리다이렉트
+```
+
+---
+
+#### 4. migrate.js 자동 스캔 수정 (BUG-02)
+
+**증상:** `003_access_requests.sql` 추가 후에도 DB 테이블이 생성되지 않아 `internal_error` 발생
+
+**원인:** `migrate.js`에 마이그레이션 파일 목록이 하드코딩(`['001_auth.sql', '002_watchlist.sql']`)되어 있어 신규 파일 자동 인식 불가
+
+**수정 내용:**
+```js
+// Before: 하드코딩
+const migrations = ['001_auth.sql', '002_watchlist.sql'];
+
+// After: 디렉터리 자동 스캔
+const migrations = fs
+  .readdirSync(path.join(__dirname, 'migrations'))
+  .filter((f) => f.endsWith('.sql'))
+  .sort();
+```
+
+---
+
+#### 5. 즉시 받기 자동 로그인 개선
+
+폴링으로 코드를 수신하면 입력 필드에 넣고 버튼 클릭을 유도하는 방식 → `autoLogin(code)` 함수로 코드 자동 입력 + `POST /api/auth/login` 직접 호출 → 성공 시 즉시 `window.location.href = '/'` 리다이렉트.
+
+---
+
+#### 6. 이메일 동시 발송 (재로그인 문제 해결)
+
+즉시(instant) 방식으로 로그인한 사용자가 이후 재로그인 수단이 없는 문제 해결.  
+관리자 승인 시 `delivery:'instant'`이더라도 동시에 Gmail SMTP로 이메일 발송하여 코드 영구 보존.
+
+---
+
+#### 7. 이메일 발송 진단 수정 — emailSent 오진 수정
+
+**증상:** `emailSent: true` 응답이 오지만 실제 이메일이 도착하지 않음
+
+**원인:** `emailSent: Boolean(mailer)` — 발송 성공 여부가 아닌 mailer 객체 존재 여부를 반환; `.catch()`가 오류를 삼키고 `emailSent = true` 설정
+
+**수정 내용:**
+```js
+// Before
+emailSent: Boolean(mailer)
+mailer.sendMail({...}).catch(e => console.error(e));
+
+// After
+let emailSent = false;
+let emailError = null;
+try {
+  await mailer.sendMail({...});
+  emailSent = true;
+} catch (e) {
+  emailError = e.message;
+}
+res.json({ ok: true, ..., emailSent, emailError });
+```
+
+이제 응답에 `emailError` 필드가 포함되어 실제 SMTP 오류 메시지 확인 가능.
+
+---
+
 ### 커밋 이력 (오늘)
 
 | 해시 | 메시지 |
 |------|--------|
 | `fd13a40` | fix: 토스트 알림 z-index 상향 (300 → 1100) — 모달 위에 표시 |
+| `91e147b` | feat(M-3b): GA4 측정 ID 교체 — G-KMCM3VCKN6 적용 |
+| `d80a7bc` | docs(TASKS): M-3b 완료 반영 및 우선순위 재정렬 |
+| `f5ed10c` | feat: 로그인 코드 요청 시스템 (Slack + 이메일/즉시 수신) |
+| `19d2def` | fix: migrate.js — SQL 파일 하드코딩 제거, migrations/ 디렉터리 자동 스캔 |
+| `ad76823` | feat: Slack 즉시 받기 → 코드 수신 시 자동 로그인 |
+| `1afcccf` | feat: Slack 즉시 수신 시 로그인 코드 이메일 동시 발송 |
+| `22e6d1a` | fix: 이메일 발송 결과 await + 실제 오류 메시지 응답에 포함 |
 
 ---
 
@@ -38,13 +152,21 @@
 
 ---
 
+### 진행 중 / 미결
+
+| 항목 | 상태 |
+|------|------|
+| 이메일 발송 진단 | `emailError` 필드 배포 완료 — 실제 오류 메시지 확인 테스트 필요 |
+
+---
+
 ### 다음 작업 후보
 
 | ID | 작업 | 우선순위 |
 |----|------|----------|
-| M-3b | GA4 콘솔에서 측정 ID 발급 후 `G-XXXXXXXXXX` 4곳 교체 | 높음 (사용자 직접) |
+| — | 이메일 발송 진단 완료 (emailError 확인 후 SMTP 설정 수정) | 즉시 |
 | A-0~A-2 | AI 브리핑 MVP (규칙 기반, LLM 없음) — AdSense 콘텐츠 강화 | 높음 |
-| M-5 | Google AdSense 신청 (M-2/M-3 완료 후) | 중간 |
+| M-5 | Google AdSense 신청 (브리핑 완료 후) | 중간 |
 
 ---
 
