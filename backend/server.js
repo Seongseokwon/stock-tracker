@@ -645,34 +645,43 @@ app.post('/api/admin/approve-request', async (req, res) => {
 
     if (delivery === 'email') {
       // Gmail SMTP 발송
+      let emailSent = false;
+      let emailError = null;
       const mailer = getMailer();
       if (mailer) {
-        await mailer.sendMail({
-          from: `"StockPulse" <${GMAIL_USER}>`,
-          to: email,
-          subject: '[StockPulse] 로그인 코드가 발급됐습니다',
-          text:
-            `안녕하세요!\n\n` +
-            `StockPulse 로그인 코드가 발급됐습니다.\n\n` +
-            `코드: ${plainCode}\n\n` +
-            `유효기간: 7일\n` +
-            `로그인 페이지: https://stock-tracker-opal-six.vercel.app/login.html\n\n` +
-            `본 이메일은 발신 전용입니다.`,
-          html:
-            `<p>안녕하세요!</p>` +
-            `<p>StockPulse 로그인 코드가 발급됐습니다.</p>` +
-            `<p style="font-size:24px;font-weight:bold;letter-spacing:2px;">${plainCode}</p>` +
-            `<p>유효기간: 7일 | ` +
-            `<a href="https://stock-tracker-opal-six.vercel.app/login.html">로그인 페이지</a></p>`,
-        });
+        try {
+          await mailer.sendMail({
+            from: `"StockPulse" <${GMAIL_USER}>`,
+            to: email,
+            subject: '[StockPulse] 로그인 코드가 발급됐습니다',
+            text:
+              `안녕하세요!\n\n` +
+              `StockPulse 로그인 코드가 발급됐습니다.\n\n` +
+              `코드: ${plainCode}\n\n` +
+              `유효기간: 7일\n` +
+              `로그인 페이지: https://stock-tracker-opal-six.vercel.app/login.html\n\n` +
+              `본 이메일은 발신 전용입니다.`,
+            html:
+              `<p>안녕하세요!</p>` +
+              `<p>StockPulse 로그인 코드가 발급됐습니다.</p>` +
+              `<p style="font-size:24px;font-weight:bold;letter-spacing:2px;">${plainCode}</p>` +
+              `<p>유효기간: 7일 | ` +
+              `<a href="https://stock-tracker-opal-six.vercel.app/login.html">로그인 페이지</a></p>`,
+          });
+          emailSent = true;
+        } catch (e) {
+          emailError = e.message;
+          console.error('[approve-request] 이메일 발송 실패:', e.message);
+        }
       } else {
+        emailError = 'GMAIL_USER 또는 GMAIL_APP_PASSWORD 환경변수 미설정';
         console.warn('[approve-request] GMAIL_USER/GMAIL_APP_PASSWORD 미설정 — 이메일 발송 생략');
       }
       await db.query(
         `UPDATE access_requests SET status='sent', code_id=$1 WHERE id=$2`,
         [codeRows[0].id, reqId]
       );
-      res.json({ ok: true, code: plainCode, delivery: 'email', emailSent: Boolean(mailer) });
+      res.json({ ok: true, code: plainCode, delivery: 'email', emailSent, emailError });
     } else {
       // instant: plain_code 임시 저장 → 폴링이 가져간 후 NULL 처리
       await db.query(

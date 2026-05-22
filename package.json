@@ -13,6 +13,8 @@
     "db:logs": "docker compose logs -f postgres",
     "db:gen-code": "node backend/gen-code.js",
     "test:auth": "node scripts/test-auth.mjs",
+    "test:email": "node backend/test-email.js",
+    "test:email-flow": "node backend/test-email-flow.js",
     "qa": "node scripts/qa.mjs",
     "qa:prod": "node scripts/qa-prod.mjs",
     "build:kr-stocks": "node scripts/build-kr-stocks.mjs",

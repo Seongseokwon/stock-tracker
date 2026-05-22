@@ -3,7 +3,7 @@
 > **이 파일 하나만 읽어도** 프로젝트의 목적·구조·현황·제약·향후 방향을 파악할 수 있도록 작성했습니다.  
 > 다른 AI·개발자 온보딩용 **마스터 문서**입니다.
 
-**문서 버전:** 2026-05-22-B (로그인 코드 요청 시스템 · GA4 실측정 ID · migrate.js 자동 스캔 · 이메일 진단 수정)  
+**문서 버전:** 2026-05-22-C (이메일 플로우 BUG-03 완전 수정 · 이메일 통합 테스트 스크립트 추가 · 운영 배포)  
 **프론트 URL:** https://stock-tracker-opal-six.vercel.app  
 **백엔드 URL:** https://stock-tracker-production-7e54.up.railway.app  
 **로컬 실행:** `npm start` → http://localhost:3000  
@@ -226,7 +226,7 @@ stock-tracker/
 
 ---
 
-## 8. 운영·QA 현황 (2026-05-21)
+## 8. 운영·QA 현황 (2026-05-22)
 
 | 항목 | 상태 |
 |------|------|
@@ -255,7 +255,8 @@ stock-tracker/
 | BUG-01 토스트 z-index 수정 (1100) | ✅ 2026-05-22 |
 | BUG-02 migrate.js 자동 스캔 | ✅ 2026-05-22 |
 | REQ-1~5 로그인 코드 요청 시스템 (Slack + 이메일/즉시) | ✅ 2026-05-22 |
-| 이메일 발송 진단 (`emailError` 응답 포함, 실 테스트 필요) | 🔄 2026-05-22 |
+| BUG-03 이메일 배송 경로 `emailSent` 오진 + 예외 미처리 완전 수정 | ✅ 2026-05-22 |
+| 이메일 플로우 통합 테스트 (`test:email`, `test:email-flow`) | ✅ 2026-05-22 실발송 확인 |
 
 ```bash
 npm run install:all
@@ -265,6 +266,8 @@ npm run db:migrate                   # 테이블 생성 (최초 1회)
 npm run db:gen-code                  # 로그인 코드 생성 (랜덤, 재사용 가능)
 npm run db:gen-code -- --code SP-USER-0001  # 커스텀 코드 지정
 npm run test:auth                    # 인증 통합 테스트
+npm run test:email                   # SMTP 연결·단건 발송 테스트
+npm run test:email-flow              # 코드 요청→승인→이메일 전체 플로우 테스트
 npm start                            # 로컬
 npm run qa                           # localhost:3000
 npm run qa:prod                      # 프로덕션 URL
@@ -309,7 +312,7 @@ npm run clean                        # 압축 전 node_modules·.vercel 삭제
 | UI | 모달 헤더에 가림 | `z-index`, `ensureModalOnBody()` |
 | BUG-01 | 토스트 알림이 모달 뒤에 가려짐 | `.toast-container` z-index 300 → 1100 (`frontend/style.css`) |
 | BUG-02 | `migrate.js` 파일 목록 하드코딩 → 003 마이그레이션 미실행 | `fs.readdirSync('migrations/')` 자동 스캔으로 교체 |
-| BUG-03 | `emailSent: Boolean(mailer)` 오진 — 발송 실패해도 `true` 반환 | `await mailer.sendMail()` try/catch + `emailError` 필드 응답 포함 |
+| BUG-03 | `emailSent: Boolean(mailer)` 오진 + `email` 경로 예외 미처리 | 양쪽 경로 모두 try/catch + `emailSent`/`emailError` 응답 — 실발송 검증 완료 |
 | UI | 배당률 % 표시 오류 | `formatFinnhubPercent` |
 | PWA | icon 크기·스크린샷 | 512×512 PNG, wide/narrow screenshots |
 
