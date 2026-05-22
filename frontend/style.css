@@ -1784,6 +1784,39 @@ html[data-theme="light"] .theme-toggle-btn .theme-icon-light { display: inline; 
   letter-spacing: 0.06em;
   margin-bottom: 10px;
 }
+/* ── 브리핑 섹션 ── */
+.modal-briefing {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+}
+.modal-briefing-body {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: keep-all;
+}
+.modal-briefing-body strong,
+.modal-briefing-body b {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.modal-briefing-notice {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.modal-briefing-placeholder { font-size: 0.8rem; color: var(--text-muted); }
+.modal-briefing-cached {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+  text-align: right;
+}
+
 .modal-news {
   margin-top: 16px;
   padding-top: 16px;

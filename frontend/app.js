@@ -1745,6 +1745,7 @@ async function openModal(symbol) {
   if (scrollEl) scrollEl.scrollTop = 0;
   overlay.scrollTop = 0;
   await loadModalChartData(symbol);
+  loadModalBriefing(symbol);
   loadModalNews(symbol);
   loadModalMetrics(symbol);
 
@@ -2341,6 +2342,51 @@ function resetModalExtras() {
   });
   const list = document.getElementById('modalNewsList');
   if (list) list.innerHTML = '<p class="modal-news-placeholder">불러오는 중...</p>';
+  const briefBody = document.getElementById('modalBriefingBody');
+  if (briefBody) briefBody.innerHTML = '<p class="modal-briefing-placeholder">불러오는 중...</p>';
+}
+
+/* ── A-4: 브리핑 로드 ── */
+async function loadModalBriefing(symbol) {
+  const block = document.getElementById('modalBriefingBlock');
+  const body  = document.getElementById('modalBriefingBody');
+  if (!block || !body) return;
+
+  // KR 종목은 섹션 숨김
+  if (isKoreanSymbol(symbol)) {
+    block.style.display = 'none';
+    return;
+  }
+  block.style.display = '';
+
+  try {
+    const res = await apiFetch(`/api/briefing?symbol=${encodeURIComponent(symbol)}`);
+    if (!res.ok) throw new Error('briefing failed');
+    const data = await res.json();
+
+    if (data.notice && !data.summary) {
+      // 장중 오전 or KR 안내
+      body.innerHTML = `<p class="modal-briefing-notice">${escapeHtml(data.notice)}</p>`;
+      return;
+    }
+
+    if (!data.summary) {
+      body.innerHTML = `<p class="modal-briefing-placeholder">브리핑을 생성할 수 없습니다.</p>`;
+      return;
+    }
+
+    // 마크다운 **bold** → <strong> 변환 (간단 규칙)
+    const formatted = escapeHtml(data.summary)
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+    const cachedNote = data.cached
+      ? `<div class="modal-briefing-cached">캐시됨 · ${new Date(data.cachedAt).toLocaleString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</div>`
+      : '';
+
+    body.innerHTML = `<div class="modal-briefing-body">${formatted}</div>${cachedNote}`;
+  } catch {
+    body.innerHTML = `<p class="modal-briefing-placeholder">브리핑을 불러오지 못했습니다.</p>`;
+  }
 }
 
 async function loadModalNews(symbol) {

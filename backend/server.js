@@ -732,6 +732,185 @@ app.post('/api/admin/approve-request', async (req, res) => {
   }
 });
 
+/* ============================================================
+   AI 브리핑 (A-0~A-5)
+   ============================================================ */
+
+// A-0: 슬롯 규칙 — ET 기준 US 종목
+function getBriefingSlot(symbol) {
+  const now = new Date();
+  // US 종목: ET 기준
+  const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const etMins = et.getHours() * 60 + et.getMinutes();
+  const etDay = et.getDay();
+  const isWeekend = etDay === 0 || etDay === 6;
+  if (isWeekend) return { slot: 'post_close', tradingDate: getTradingDate(et) };
+  if (etMins < 9 * 60 + 30)  return { slot: 'pre_open',   tradingDate: getTradingDate(et) };
+  if (etMins < 12 * 60)      return { slot: null,          tradingDate: getTradingDate(et) }; // 장중 오전 — 브리핑 없음
+  if (etMins < 16 * 60)      return { slot: 'midday',      tradingDate: getTradingDate(et) };
+  return                              { slot: 'post_close', tradingDate: getTradingDate(et) };
+}
+
+function getTradingDate(localDate) {
+  // YYYY-MM-DD 형식
+  return localDate.toISOString().slice(0, 10);
+}
+
+// A-2: 규칙 기반 요약 생성 (LLM 없음)
+function buildBriefingSummary({ slot, symbol, quote, news, profile }) {
+  const name = profile?.name || symbol;
+  const price = quote?.c;
+  const prevClose = quote?.pc;
+  const change = quote?.d;
+  const pct = quote?.dp;
+  const high = quote?.h;
+  const low = quote?.l;
+  const volume = quote?.v;
+
+  const sign = (change ?? 0) >= 0 ? '+' : '';
+  const priceStr = price != null ? `$${price.toFixed(2)}` : '가격 정보 없음';
+  const chgStr = (change != null && pct != null)
+    ? `${sign}$${Math.abs(change).toFixed(2)} (${sign}${pct.toFixed(2)}%)`
+    : '';
+  const dirWord = (change ?? 0) >= 0 ? '상승' : '하락';
+  const dirEmoji = (change ?? 0) >= 0 ? '📈' : '📉';
+
+  const topHeadlines = (news || []).slice(0, 3);
+  const newsBlock = topHeadlines.length
+    ? topHeadlines.map((n, i) => `${i + 1}. ${n.headline}`).join('\n')
+    : null;
+
+  let lines = [];
+
+  if (slot === 'pre_open') {
+    lines.push(`${dirEmoji} **${name}** — 전일 ${dirWord} 마감`);
+    if (priceStr && chgStr) lines.push(`종가 ${priceStr} (${chgStr})`);
+    if (high && low) lines.push(`고가 $${high.toFixed(2)} / 저가 $${low.toFixed(2)}`);
+    if (volume) lines.push(`거래량 ${formatVolumeNum(volume)}`);
+    if (newsBlock) lines.push(`\n**최근 뉴스:**\n${newsBlock}`);
+    lines.push(`\n오늘 정규장은 09:30 ET에 시작됩니다.`);
+  } else if (slot === 'midday') {
+    lines.push(`${dirEmoji} **${name}** — 오전장 ${dirWord}`);
+    if (priceStr && chgStr) lines.push(`현재가 ${priceStr} (${chgStr})`);
+    if (high && low) lines.push(`장중 고가 $${high.toFixed(2)} / 저가 $${low.toFixed(2)}`);
+    if (volume) lines.push(`거래량 ${formatVolumeNum(volume)}`);
+    if (newsBlock) lines.push(`\n**오늘의 뉴스:**\n${newsBlock}`);
+  } else if (slot === 'post_close') {
+    lines.push(`${dirEmoji} **${name}** — 당일 ${dirWord} 마감`);
+    if (priceStr && chgStr) lines.push(`종가 ${priceStr} (${chgStr})`);
+    if (high && low) lines.push(`고가 $${high.toFixed(2)} / 저가 $${low.toFixed(2)}`);
+    if (volume) lines.push(`거래량 ${formatVolumeNum(volume)}`);
+    if (newsBlock) lines.push(`\n**오늘의 뉴스:**\n${newsBlock}`);
+    lines.push(`\n다음 거래일에도 주목하세요.`);
+  }
+
+  if (!lines.length) lines.push(`${name} 브리핑 데이터를 불러올 수 없습니다.`);
+  lines.push(`\n⚠️ 이 브리핑은 자동 생성된 정보 요약이며 투자 조언이 아닙니다.`);
+  return lines.join('\n');
+}
+
+function formatVolumeNum(v) {
+  if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
+  if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+  if (v >= 1e3) return `${(v / 1e3).toFixed(1)}K`;
+  return String(v);
+}
+
+// A-1: GET /api/briefing?symbol=AAPL&slot=auto
+app.get('/api/briefing', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const symbol = String(req.query.symbol || '').toUpperCase().trim();
+  if (!symbol) return res.status(400).json({ error: 'symbol_required' });
+
+  // US 종목만 지원 (KR은 뉴스 API 없음)
+  if (isKoreanSymbol(symbol)) {
+    return res.json({
+      slot: null,
+      summary: null,
+      notice: 'KR 종목은 브리핑을 지원하지 않습니다. (뉴스 API 미제공)',
+      cached: false,
+    });
+  }
+
+  const { slot, tradingDate } = getBriefingSlot(symbol);
+
+  // 장중 오전 (slot = null) → 브리핑 없음
+  if (!slot) {
+    return res.json({
+      slot: null,
+      summary: null,
+      notice: '오전장 브리핑은 12:00 ET 이후에 제공됩니다.',
+      cached: false,
+    });
+  }
+
+  // A-5: DB 캐시 확인
+  if (db.pool) {
+    try {
+      const cached = await db.query(
+        `SELECT summary, created_at FROM briefings
+         WHERE symbol=$1 AND slot=$2 AND trading_date=$3 LIMIT 1`,
+        [symbol, slot, tradingDate]
+      );
+      if (cached.rows.length > 0) {
+        return res.json({
+          slot,
+          tradingDate,
+          summary: cached.rows[0].summary,
+          cached: true,
+          cachedAt: cached.rows[0].created_at,
+        });
+      }
+    } catch (err) {
+      console.error('[briefing] DB cache read error:', err.message);
+    }
+  }
+
+  // 데이터 수집 (시세 + 뉴스 + 프로필)
+  let quote = null, news = [], profile = null;
+  try {
+    if (FINNHUB_KEY) {
+      const [qRes, nRes, pRes] = await Promise.allSettled([
+        fetchJson(`${FINNHUB_REST}/quote?symbol=${encodeURIComponent(symbol)}&token=${FINNHUB_KEY}`),
+        (() => {
+          const to = new Date();
+          const from = new Date(to);
+          from.setDate(from.getDate() - 3);
+          return fetchJson(
+            `${FINNHUB_REST}/company-news?symbol=${encodeURIComponent(symbol)}` +
+            `&from=${from.toISOString().slice(0, 10)}&to=${to.toISOString().slice(0, 10)}&token=${FINNHUB_KEY}`
+          );
+        })(),
+        fetchJson(`${FINNHUB_REST}/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${FINNHUB_KEY}`),
+      ]);
+      if (qRes.status === 'fulfilled') quote = qRes.value;
+      if (nRes.status === 'fulfilled') news = Array.isArray(nRes.value) ? nRes.value.slice(0, 5) : [];
+      if (pRes.status === 'fulfilled') profile = pRes.value;
+    }
+  } catch (err) {
+    console.error('[briefing] data fetch error:', err.message);
+  }
+
+  const summary = buildBriefingSummary({ slot, symbol, quote, news, profile });
+
+  // A-5: DB에 저장
+  if (db.pool) {
+    try {
+      await db.query(
+        `INSERT INTO briefings (symbol, slot, trading_date, summary, data_json)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (symbol, slot, trading_date) DO UPDATE
+           SET summary=EXCLUDED.summary, data_json=EXCLUDED.data_json, created_at=NOW()`,
+        [symbol, slot, tradingDate, summary, JSON.stringify({ quote, news: news.map(n => ({ headline: n.headline, datetime: n.datetime })), profile })]
+      );
+    } catch (err) {
+      console.error('[briefing] DB cache write error:', err.message);
+    }
+  }
+
+  res.json({ slot, tradingDate, summary, cached: false });
+});
+
 /* --- Health --- */
 app.get('/api/health', (_req, res) => {
   res.json({

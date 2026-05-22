@@ -3,7 +3,7 @@
 > **이 파일 하나만 읽어도** 프로젝트의 목적·구조·현황·제약·향후 방향을 파악할 수 있도록 작성했습니다.  
 > 다른 AI·개발자 온보딩용 **마스터 문서**입니다.
 
-**문서 버전:** 2026-05-22-C (이메일 플로우 BUG-03 완전 수정 · 이메일 통합 테스트 스크립트 추가 · 운영 배포)  
+**문서 버전:** 2026-05-22-D (AI 브리핑 MVP A-0~A-5 구현 · DB 캐시 · 모달 UI 적용)  
 **프론트 URL:** https://stock-tracker-opal-six.vercel.app  
 **백엔드 URL:** https://stock-tracker-production-7e54.up.railway.app  
 **로컬 실행:** `npm start` → http://localhost:3000  
@@ -257,6 +257,7 @@ stock-tracker/
 | REQ-1~5 로그인 코드 요청 시스템 (Slack + 이메일/즉시) | ✅ 2026-05-22 |
 | BUG-03 이메일 배송 경로 `emailSent` 오진 + 예외 미처리 완전 수정 | ✅ 2026-05-22 |
 | 이메일 플로우 통합 테스트 (`test:email`, `test:email-flow`) | ✅ 2026-05-22 실발송 확인 |
+| A-0~A-5 AI 브리핑 MVP (규칙 기반, DB 캐시, 모달 UI) | ✅ 2026-05-22 |
 
 ```bash
 npm run install:all
