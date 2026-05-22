@@ -679,7 +679,33 @@ app.post('/api/admin/approve-request', async (req, res) => {
         `UPDATE access_requests SET status='approved', code_id=$1, plain_code=$2 WHERE id=$3`,
         [codeRows[0].id, plainCode, reqId]
       );
-      res.json({ ok: true, code: plainCode, delivery: 'instant' });
+
+      // 즉시 수신이라도 이메일로 코드 동시 발송 → 재로그인 대비
+      const mailer = getMailer();
+      if (mailer) {
+        mailer.sendMail({
+          from: `"StockPulse" <${GMAIL_USER}>`,
+          to: email,
+          subject: '[StockPulse] 로그인 코드가 발급됐습니다',
+          text:
+            `안녕하세요!\n\n` +
+            `방금 로그인이 완료됐습니다.\n` +
+            `다음번 로그인 또는 다른 기기에서 사용할 수 있도록 코드를 보내드립니다.\n\n` +
+            `코드: ${plainCode}\n\n` +
+            `유효기간: 7일\n` +
+            `로그인 페이지: https://stock-tracker-opal-six.vercel.app/login.html\n\n` +
+            `본 이메일은 발신 전용입니다.`,
+          html:
+            `<p>안녕하세요!</p>` +
+            `<p>방금 로그인이 완료됐습니다.<br/>` +
+            `다음번 로그인 또는 다른 기기에서 사용할 수 있도록 코드를 보내드립니다.</p>` +
+            `<p style="font-size:22px;font-weight:bold;letter-spacing:2px;padding:12px 0;">${plainCode}</p>` +
+            `<p>유효기간: 7일 | ` +
+            `<a href="https://stock-tracker-opal-six.vercel.app/login.html">로그인 페이지</a></p>`,
+        }).catch(e => console.warn('[approve-request] 이메일 발송 실패:', e.message));
+      }
+
+      res.json({ ok: true, code: plainCode, delivery: 'instant', emailSent: Boolean(mailer) });
     }
   } catch (err) {
     console.error('[approve-request]', err.message);
