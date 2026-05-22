@@ -18,10 +18,11 @@ async function migrate() {
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-  const migrations = [
-    '001_auth.sql',
-    '002_watchlist.sql',
-  ];
+  // migrations/ 디렉터리의 *.sql 파일을 이름순(숫자 순서)으로 자동 로드
+  const migrations = fs
+    .readdirSync(path.join(__dirname, 'migrations'))
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
 
   try {
     for (const file of migrations) {
